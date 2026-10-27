@@ -518,22 +518,19 @@ def account_profile():
             return redirect(url_for("account_login"))
         if request.method == "POST":
             display_name = bleach.clean(request.form.get("display_name", "").strip(), tags=[], strip=True)[:80]
-            avatar_url = request.form.get("avatar_url", "").strip()
-            if avatar_url and (not avatar_url.startswith("https://") or len(avatar_url) > 1500):
-                flash("لینک تصویر پروفایل باید با https:// شروع شود.", "error")
-            else:
-                uploaded = request.files.get("avatar_file")
-                if uploaded and uploaded.filename:
-                    mime = uploaded.mimetype or ""
-                    raw = uploaded.read(1_500_001)
-                    if mime not in ("image/png", "image/jpeg", "image/webp", "image/gif") or len(raw) > 1_500_000:
-                        flash("تصویر باید PNG، JPG، WEBP یا GIF و حداکثر ۱٫۵ مگابایت باشد.", "error")
-                        return redirect(url_for("account_profile"))
-                    avatar_url = "data:" + mime + ";base64," + base64.b64encode(raw).decode("ascii")
-                db.execute("UPDATE members SET display_name=?,avatar_url=? WHERE id=?",
-                           (display_name or member["username"], avatar_url, member["id"]))
-                flash("پروفایل ذخیره شد.", "success")
-                return redirect(url_for("account_profile"))
+            avatar_url = member["avatar_url"]
+            uploaded = request.files.get("avatar_file")
+            if uploaded and uploaded.filename:
+                mime = uploaded.mimetype or ""
+                raw = uploaded.read(1_500_001)
+                if mime not in ("image/png", "image/jpeg", "image/webp", "image/gif") or len(raw) > 1_500_000:
+                    flash("تصویر باید PNG، JPG، WEBP یا GIF و حداکثر ۱٫۵ مگابایت باشد.", "error")
+                    return redirect(url_for("account_profile"))
+                avatar_url = "data:" + mime + ";base64," + base64.b64encode(raw).decode("ascii")
+            db.execute("UPDATE members SET display_name=?,avatar_url=? WHERE id=?",
+                       (display_name or member["username"], avatar_url, member["id"]))
+            flash("پروفایل ذخیره شد.", "success")
+            return redirect(url_for("account_profile"))
         member = db.execute("SELECT * FROM members WHERE id=?", (session["member_id"],)).fetchone()
         comments = db.execute("SELECT c.id,c.body,c.created_at,c.post_id,p.title FROM post_comments c JOIN posts p ON p.id=c.post_id WHERE c.member_id=? ORDER BY c.id DESC LIMIT 20", (session["member_id"],)).fetchall()
         notifications = db.execute("SELECT * FROM notifications WHERE recipient_type='member' AND recipient_id=? ORDER BY id DESC LIMIT 50", (session["member_id"],)).fetchall()
