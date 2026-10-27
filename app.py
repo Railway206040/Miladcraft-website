@@ -94,6 +94,22 @@ def index():
         posts = db.execute("SELECT id,title,summary,cover_url,author,created_at FROM posts WHERE published=1 ORDER BY id DESC LIMIT 3").fetchall()
     return render_template("index.html", posts=posts, server_address=SERVER_ADDRESS, telegram_url=TELEGRAM_URL)
 
+@app.route("/robots.txt")
+def robots_txt():
+    body = "User-agent: *\\nAllow: /\\nDisallow: /staff\\nDisallow: /staff/\\nSitemap: " + request.url_root.rstrip("/") + "/sitemap.xml\\n"
+    return app.response_class(body, mimetype="text/plain")
+
+@app.route("/sitemap.xml")
+def sitemap_xml():
+    base = request.url_root.rstrip("/")
+    urls = [base + "/", base + url_for("academy")]
+    with connect_db() as db:
+        rows = db.execute("SELECT id FROM posts WHERE published=1 ORDER BY id DESC").fetchall()
+    urls.extend(base + url_for("blog_post", post_id=row["id"]) for row in rows)
+    entries = "".join("<url><loc>" + url + "</loc></url>" for url in urls)
+    xml = '<?xml version="1.0" encoding="UTF-8"?><urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">' + entries + "</urlset>"
+    return app.response_class(xml, mimetype="application/xml")
+
 @app.route("/api/server-status")
 def server_status():
     try:
