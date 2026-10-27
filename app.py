@@ -40,6 +40,8 @@ def init_db():
           id INTEGER PRIMARY KEY AUTOINCREMENT, username TEXT UNIQUE NOT NULL,
           password_hash TEXT NOT NULL, role TEXT NOT NULL CHECK(role IN ('builder','hbuilder','developer','owner')),
           created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP);
+        CREATE TABLE IF NOT EXISTS site_settings (
+          setting_key TEXT PRIMARY KEY, setting_value TEXT NOT NULL DEFAULT '');
         CREATE TABLE IF NOT EXISTS projects (
           id INTEGER PRIMARY KEY AUTOINCREMENT, title TEXT NOT NULL, description TEXT NOT NULL,
           required_builders INTEGER NOT NULL DEFAULT 1, status TEXT NOT NULL DEFAULT 'Open',
@@ -53,6 +55,17 @@ def init_db():
           published INTEGER NOT NULL DEFAULT 1, created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
           updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP);
         """)
+        image_defaults = {
+            "hero_image": "https://images.unsplash.com/photo-1542751371-adc38448a05e?auto=format&fit=crop&w=1800&q=85",
+            "about_image": "https://images.unsplash.com/photo-1511512578047-dfb367046420?auto=format&fit=crop&w=1000&q=85",
+            "roleplay_image": "https://images.unsplash.com/photo-1493711662062-fa5416f8d4db?auto=format&fit=crop&w=1100&q=85",
+            "survival_image": "https://images.unsplash.com/photo-1580234811497-9df7fd2f357e?auto=format&fit=crop&w=1100&q=85",
+            "gallery_image_1": "https://images.unsplash.com/photo-1511512578047-dfb367046420?auto=format&fit=crop&w=1200&q=85",
+            "gallery_image_2": "https://images.unsplash.com/photo-1542751371-adc38448a05e?auto=format&fit=crop&w=800&q=85",
+            "gallery_image_3": "https://images.unsplash.com/photo-1493711662062-fa5416f8d4db?auto=format&fit=crop&w=800&q=85"
+        }
+        for key, value in image_defaults.items():
+            db.execute("INSERT OR IGNORE INTO site_settings(setting_key,setting_value) VALUES(?,?)", (key, value))
         username = os.environ.get("BOOTSTRAP_OWNER_USERNAME", "").strip()
         password = os.environ.get("BOOTSTRAP_OWNER_PASSWORD", "")
         if username and password and not db.execute("SELECT id FROM staff WHERE username=?", (username,)).fetchone():
@@ -92,7 +105,9 @@ def common_template_values():
 def index():
     with connect_db() as db:
         posts = db.execute("SELECT id,title,summary,cover_url,author,created_at FROM posts WHERE published=1 ORDER BY id DESC LIMIT 3").fetchall()
-    return render_template("index.html", posts=posts, server_address=SERVER_ADDRESS, telegram_url=TELEGRAM_URL)
+        site_images = {row["setting_key"]: row["setting_value"] for row in db.execute("SELECT setting_key,setting_value FROM site_settings")}
+    return render_template("index.html", posts=posts, site_images=site_images,
+                           server_address=SERVER_ADDRESS, telegram_url=TELEGRAM_URL)
 
 @app.route("/robots.txt")
 def robots_txt():
@@ -153,11 +168,32 @@ def dashboard():
         staff = db.execute("SELECT id,username,role,created_at FROM staff ORDER BY id").fetchall() if session["role"] in ("owner", "developer") else []
         posts = db.execute("SELECT id,title,published,created_at FROM posts ORDER BY id DESC").fetchall() if "blog_manage" in ROLE_PERMISSIONS.get(session["role"], set()) else []
     role = session["role"]
+    with connect_db() as db:
+        site_images = {row["setting_key"]: row["setting_value"] for row in db.execute("SELECT setting_key,setting_value FROM site_settings")}
     return render_template("dashboard.html", projects=projects, warnings=warnings, staff=staff, posts=posts,
-                           role_label=ROLES.get(role, role), can_create="projects_create" in ROLE_PERMISSIONS[role],
+                           site_images=site_images, role_label=ROLES.get(role, role),
+                           can_create="projects_create" in ROLE_PERMISSIONS[role],
                            can_warn="warnings_create" in ROLE_PERMISSIONS[role],
                            full_access="full_access" in ROLE_PERMISSIONS[role],
                            can_blog="blog_manage" in ROLE_PERMISSIONS[role])
+
+@app.route("/site-settings/images", methods=["POST"])
+@permission_required("full_access")
+def update_site_images():
+    keys = ["hero_image", "about_image", "roleplay_image", "survival_image",
+            "gallery_image_1", "gallery_image_2", "gallery_image_3"]
+    values = {}
+    for key in keys:
+        value = request.form.get(key, "").strip()
+        if value and (not value.startswith("https://") or len(value) > 1500):
+            flash("آدرس همه تصاویر باید با https:// شروع شود و معتبر باشد.", "error")
+            return redirect(url_for("dashboard"))
+        values[key] = value
+    with connect_db() as db:
+        for key, value in values.items():
+            db.execute("UPDATE site_settings SET setting_value=? WHERE setting_key=?", (value, key))
+    flash("تصاویر صفحه اصلی ذخیره شدند. برای دیدن تغییرات صفحه اصلی را تازه‌سازی کنید.", "success")
+    return redirect(url_for("dashboard"))
 
 @app.route("/projects/create", methods=["POST"])
 @permission_required("projects_create")
