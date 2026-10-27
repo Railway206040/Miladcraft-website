@@ -1,7 +1,51 @@
 <!doctype html>
-<html lang="fa" dir="rtl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>ورود استف‌ها | MILAD CRAFT</title><link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}"></head>
-<body class="login-page"><header class="topbar"><a class="brand" href="/">MILAD<span>CRAFT</span></a><a class="text-link" href="/">بازگشت به سایت</a></header>
-<main class="login-wrap"><section class="login-card"><p class="eyebrow">STAFF ACCESS</p><h1>ورود به پنل استف‌ها</h1><p class="muted">برای ادامه، نام کاربری و رمز عبور حساب خود را وارد کنید.</p>
-{% with messages = get_flashed_messages(with_categories=true) %}{% for category,message in messages %}<div class="notice {{ category }}">{{ message }}</div>{% endfor %}{% endwith %}
-<form method="post"><label for="username">نام کاربری</label><input id="username" name="username" autocomplete="username" required maxlength="80"><label for="password">رمز عبور</label><input id="password" name="password" type="password" autocomplete="current-password" required><button class="button full" type="submit">ورود امن</button></form>
-<p class="small-note">حساب‌ها توسط مدیر وب‌سایت ساخته می‌شوند.</p></section></main></body></html>
+<html lang="fa" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>ورود کادر استف | MILAD CRAFT</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body class="login-page">
+<header class="topbar">
+  <a class="brand" href="/">
+    <img class="brand-logo" src="{{ site_images.get('site_logo') or url_for('static',filename='logo.svg') }}" alt="">
+    <span class="brand-text">MILAD<span>CRAFT</span></span>
+  </a>
+  <a class="text-link" href="/">← بازگشت به صفحه اصلی</a>
+</header>
+
+<main class="login-wrap">
+  <section class="login-card">
+    <div style="text-align:center;margin-bottom:18px;">
+      <img src="{{ site_images.get('site_logo') or url_for('static',filename='logo.svg') }}" alt="" width="64" height="64" style="margin-bottom:8px;">
+      <p class="eyebrow" style="justify-content:center;">STAFF RESTRICTED AREA</p>
+      <h1 style="font-size:24px;margin:6px 0;">ورود به پنل کادر استف</h1>
+      <p class="muted" style="font-size:14px;margin:0;">ویژه مدیران، توسعه‌دهندگان و معماران سرور میلادکرفت</p>
+    </div>
+
+    {% with messages = get_flashed_messages(with_categories=true) %}
+      {% for category,message in messages %}
+        <div class="notice {{ category }}">{{ message }}</div>
+      {% endfor %}
+    {% endwith %}
+
+    <form method="post">
+      <label for="username">نام کاربری استف</label>
+      <input id="username" name="username" autocomplete="username" required maxlength="80" placeholder="مثلاً: Alex_Builder">
+
+      <label for="password">رمز عبور</label>
+      <input id="password" name="password" type="password" autocomplete="current-password" required placeholder="••••••••••">
+
+      <button class="button full" type="submit" style="margin-top:10px;">🔐 ورود امن به داشبورد</button>
+    </form>
+
+    <div style="margin-top:20px;padding-top:16px;border-top:1px solid var(--mc-dark-500);text-align:center;">
+      <p class="small-note" style="margin:0;">حساب‌های استف توسط مالک سرور صادر می‌شوند.<br>اگر بازیکن عادی هستید، از <a href="{{ url_for('account_login') }}" style="color:var(--mc-diamond);">بخش ورود بازیکنان</a> استفاده کنید.</p>
+    </div>
+  </section>
+</main>
+</body>
+</html>
