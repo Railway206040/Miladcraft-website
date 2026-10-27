@@ -1,6 +1,33 @@
 <!doctype html>
 <html lang="fa" dir="rtl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="description" content="مرکز آموزش MILAD CRAFT؛ راهنماها، آموزش‌ها و مقاله‌های ماینکرفت فارسی."><meta name="robots" content="index,follow"><title>مرکز آموزش | MILAD CRAFT</title><link rel="stylesheet" href="{{ url_for('static',filename='style.css') }}"></head><body>
-<header class="topbar"><a class="brand" href="/"><img class="brand-logo" src="{{ site_images.get('site_logo') or url_for('static',filename='logo.svg') }}" alt=""><span class="brand-text">MILAD<span>CRAFT</span></span></a><nav class="main-nav academy-nav"><a href="/">صفحه اصلی</a><a href="{{ telegram_url }}" target="_blank" rel="noopener">تلگرام</a></nav><div class="header-actions">{% if session.get('member_id') %}<a class="button button-outline" href="{{ url_for('account_profile') }}">پروفایل من</a>{% else %}<a class="button button-outline" href="{{ url_for('account_login') }}">ورود بازیکنان</a><a class="button" href="{{ url_for('account_register') }}">ثبت‌نام</a>{% endif %}<a class="button button-outline staff-link" href="{{ url_for('login') }}">ورود استف‌ها</a></div></header>
+<header class="topbar">
+  <a class="brand" href="/" aria-label="صفحه اصلی میلادکرفت">
+    <img class="brand-logo" src="{{ site_images.get('site_logo') or url_for('static',filename='logo.svg') }}" alt="لوگوی MILAD CRAFT">
+    <span class="brand-text">MILAD<span>CRAFT</span></span>
+  </a>
+  <nav class="main-nav academy-nav" aria-label="ناوبری">
+    <a href="/">صفحه اصلی</a>
+    <a href="{{ url_for('academy') }}">مرکز آموزش</a>
+    <a href="{{ url_for('news_page') }}">اخبار</a>
+    <a href="{{ telegram_url }}" target="_blank" rel="noopener noreferrer">تلگرام</a>
+  </nav>
+  <div class="header-actions">
+    {% if session.get('staff_id') %}
+      <a class="button" href="{{ url_for('dashboard') }}">میز کار استف</a>
+      <a class="button button-outline" href="{{ url_for('staff_profile') }}">پروفایل ({{ session.get('username') }})</a>
+      <form method="post" action="{{ url_for('logout') }}" style="margin:0;display:inline;">
+        <button class="button button-danger" type="submit">خروج</button>
+      </form>
+    {% elif session.get('member_id') %}
+      <a class="button button-login-unified" href="{{ url_for('account_profile') }}">پروفایل ({{ session.get('member_username') }})</a>
+      <form method="post" action="{{ url_for('account_logout') }}" style="margin:0;display:inline;">
+        <button class="button button-outline" type="submit">خروج</button>
+      </form>
+    {% else %}
+      <a class="button button-login-unified" href="{{ url_for('account_portal') }}">ورود / ثبت‌نام</a>
+    {% endif %}
+  </div>
+</header>
 <main class="dashboard academy-page"><section class="academy-hero"><div><p class="eyebrow">LEARN · CREATE · SHARE</p><h1 class="page-title">مرکز آموزش <span class="blue-text">MILAD CRAFT</span></h1><p class="lead">راهنماها را بخوان، مهارت‌هایت را بیشتر کن و اگر سؤالی داشتی با جامعه بازیکنان گفت‌وگو کن.</p><div class="academy-hero-meta"><span>{{ posts|length }} آموزش در این فهرست</span><span>محتوا از تیم MILAD CRAFT</span></div></div><div class="academy-hero-art"><span class="academy-orbit orbit-one"></span><span class="academy-orbit orbit-two"></span><div class="academy-book-mark">MC<small>ACADEMY</small></div></div></section>
 <section class="academy-filter"><div><p class="eyebrow">BROWSE TOPICS</p><h2>دنبال چه موضوعی هستی؟</h2></div><form class="academy-search-form" method="get" action="{{ url_for('academy') }}"><label for="academy-search">جستجو در آموزش‌ها</label><div class="academy-search-row"><input id="academy-search" type="search" name="q" value="{{ search_query }}" placeholder="عنوان، متن یا نویسنده..." maxlength="100"><button class="button" type="submit">جستجو</button>{% if search_query %}<a class="button button-outline" href="{{ url_for('academy') }}">پاک کردن</a>{% endif %}</div></form><div class="tag-filter-list"><a class="tag-chip {% if not selected_tag %}selected{% endif %}" href="{{ url_for('academy') }}">همه آموزش‌ها</a>{% for tag in tags %}<a class="tag-chip {% if selected_tag == tag['id'] %}selected{% endif %}" href="{{ url_for('academy',tag=tag['id'],q=search_query) }}">{{ tag['name'] }}</a>{% endfor %}</div></section>
 <div class="article-grid">{% for post in posts %}<article class="article-card">{% if post['cover_url'] %}<img class="article-cover" src="{{ post['cover_url'] }}" alt="" loading="lazy" onerror="this.style.display='none'">{% else %}<div class="article-cover article-cover-placeholder"><span>MC</span><small>MILAD CRAFT ACADEMY</small></div>{% endif %}<div class="article-body"><div class="article-tag-row">{% for tag in tags_by_post.get(post['id'],[]) %}<a class="tag-chip tag-chip-small" href="{{ url_for('academy',tag=tag['id']) }}">{{ tag['name'] }}</a>{% endfor %}</div><span class="feature-number">ACADEMY · {{ post['created_at'][:10] }}</span><h2>{{ post['title'] }}</h2><p>{{ post['summary'] }}</p><div class="article-foot"><span>{{ post['author'] }}</span><a href="{{ url_for('blog_post',post_id=post['id']) }}">مطالعه آموزش <span>←</span></a></div></div></article>{% else %}<div class="academy-empty"><span class="feature-symbol">MC</span><h2>{% if search_query %}نتیجه‌ای برای «{{ search_query }}» پیدا نشد{% elif selected_tag %}هنوز آموزشی با این تگ نیست{% else %}هنوز مقاله‌ای منتشر نشده{% endif %}</h2><p>به‌محض انتشار آموزش توسط تیم، از همین‌جا می‌توانی آن را بخوانی.</p><a class="button button-outline" href="{{ url_for('academy') }}">نمایش همه آموزش‌ها</a></div>{% endfor %}</div></main>
