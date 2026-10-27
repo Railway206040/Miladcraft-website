@@ -66,11 +66,26 @@ def init_db():
         }
         for key, value in image_defaults.items():
             db.execute("INSERT OR IGNORE INTO site_settings(setting_key,setting_value) VALUES(?,?)", (key, value))
+        # Apply bootstrap credentials once per configured username/password pair.
+        # The marker prevents this from overwriting a user's later password change on every request.
+        db.execute("CREATE TABLE IF NOT EXISTS app_meta (meta_key TEXT PRIMARY KEY, meta_value TEXT NOT NULL)")
         username = os.environ.get("BOOTSTRAP_OWNER_USERNAME", "").strip()
         password = os.environ.get("BOOTSTRAP_OWNER_PASSWORD", "")
-        if username and password and not db.execute("SELECT id FROM staff WHERE username=?", (username,)).fetchone():
-            db.execute("INSERT INTO staff(username,password_hash,role) VALUES(?,?,?)",
-                       (username, generate_password_hash(password), "owner"))
+        if username and password:
+            import hashlib
+            bootstrap_marker = hashlib.sha256((username + "\\0" + password).encode("utf-8")).hexdigest()
+            marker_key = "bootstrap_owner:" + username
+            previous_marker = db.execute("SELECT meta_value FROM app_meta WHERE meta_key=?", (marker_key,)).fetchone()
+            if not previous_marker or previous_marker["meta_value"] != bootstrap_marker:
+                existing = db.execute("SELECT id FROM staff WHERE username=?", (username,)).fetchone()
+                if existing:
+                    db.execute("UPDATE staff SET password_hash=?, role='developer' WHERE id=?",
+                               (generate_password_hash(password), existing["id"]))
+                else:
+                    db.execute("INSERT INTO staff(username,password_hash,role) VALUES(?,?,?)",
+                               (username, generate_password_hash(password), "developer"))
+                db.execute("INSERT INTO app_meta(meta_key,meta_value) VALUES(?,?) ON CONFLICT(meta_key) DO UPDATE SET meta_value=excluded.meta_value",
+                           (marker_key, bootstrap_marker))
 
 def permission_required(permission):
     def decorator(view):
@@ -152,6 +167,30 @@ def login():
             return redirect(url_for("dashboard"))
         flash("نام کاربری یا رمز عبور اشتباه است.", "error")
     return render_template("login.html")
+
+@app.route("/staff/change-password", methods=["POST"])
+def change_password():
+    if not session.get("staff_id"):
+        return redirect(url_for("login"))
+    current_password = request.form.get("current_password", "")
+    new_password = request.form.get("new_password", "")
+    confirm_password = request.form.get("confirm_password", "")
+    if len(new_password) < 10:
+        flash("رمز عبور جدید باید حداقل ۱۰ کاراکتر باشد.", "error")
+        return redirect(url_for("dashboard"))
+    if new_password != confirm_password:
+        flash("تکرار رمز عبور با رمز جدید مطابقت ندارد.", "error")
+        return redirect(url_for("dashboard"))
+    with connect_db() as db:
+        user = db.execute("SELECT id,password_hash FROM staff WHERE id=?", (session["staff_id"],)).fetchone()
+        if not user or not check_password_hash(user["password_hash"], current_password):
+            flash("رمز عبور فعلی صحیح نیست.", "error")
+            return redirect(url_for("dashboard"))
+        db.execute("UPDATE staff SET password_hash=? WHERE id=?",
+                   (generate_password_hash(new_password), session["staff_id"]))
+    session.clear()
+    flash("رمز عبور با موفقیت تغییر کرد. لطفاً با رمز جدید وارد شوید.", "success")
+    return redirect(url_for("login"))
 
 @app.route("/staff/logout", methods=["POST"])
 def logout():
