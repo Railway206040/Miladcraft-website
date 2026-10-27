@@ -1,45 +1,321 @@
-# MILAD CRAFT Website
+# MILAD CRAFT — راهنمای کامل پروژه
 
-A Persian RTL, responsive Flask website for the MILAD CRAFT Minecraft server.
+وب‌سایت فارسی و راست‌چین سرور Minecraft **MILAD CRAFT**؛ شامل معرفی سرور، بررسی وضعیت، اخبار، مرکز آموزش، حساب بازیکنان، پروفایل‌ها و داشبورد نقش‌محور استف.
 
-## Features
-- Blue-and-black public homepage and server connection details.
-- Server online/offline/player count check via the public mcsrvstat.us status API.
-- Telegram community link: https://t.me/Milad_craft (configurable with TELEGRAM_URL).
-- Staff login with hashed passwords and role-based permissions.
-- Builder project claiming; H-Builder project creation and warnings.
-- Developer/Owner full staff controls and rich-text Academy publishing.
-- Academy editor supports bold, italic, underline, headings, ordered/unordered lists, quotes, hyperlinks, and images.
-- Rich text is sanitized on the server using Bleach before publication.
+- **آدرس سرور:** `miladcraft.seedloaf.gg`
+- **تلگرام:** [@Milad_craft](https://t.me/Milad_craft)
+- **گیم‌مود:** ROLE PLAY فعال؛ Survival در حال آماده‌سازی
+- **شروع فعالیت:** ۱۴۰۲
+- **مخزن:** [russhabot/Miladcraft-website](https://github.com/russhabot/Miladcraft-website)
 
-## Local run
+## فهرست
+
+- [قابلیت‌ها](#قابلیت‌ها)
+- [ساختار پروژه](#ساختار-پروژه)
+- [فناوری‌ها](#فناوری‌ها)
+- [اجرای محلی](#اجرای-محلی)
+- [متغیرهای محیطی](#متغیرهای-محیطی)
+- [استقرار در Railway](#استقرار-در-railway)
+- [نقش‌ها و مجوزها](#نقش‌ها-و-مجوزها)
+- [حساب بازیکن](#حساب-بازیکن)
+- [مرکز آموزش و اخبار](#مرکز-آموزش-و-اخبار)
+- [پایگاه داده](#پایگاه-داده)
+- [مسیرهای مهم](#مسیرهای-مهم)
+- [امنیت](#امنیت)
+- [عیب‌یابی](#عیب‌یابی)
+
+## قابلیت‌ها
+
+### وب‌سایت عمومی
+- رابط واکنش‌گرا برای موبایل و دسکتاپ با طراحی آبی و مشکی و چیدمان فارسی RTL.
+- معرفی سرور، آدرس اتصال، لینک تلگرام و گیم‌مودها.
+- نمایش اخبار در صفحهٔ اصلی و صفحهٔ جداگانهٔ خبر.
+- تصاویر Hero، معرفی، گیم‌مودها و گالری؛ تنظیمات تصویر در دیتابیس ذخیره می‌شوند و نقش دارای مجوز کامل می‌تواند آن‌ها را تغییر دهد.
+- بررسی وضعیت آنلاین/آفلاین، تعداد بازیکنان و نسخه از طریق سرویس خارجی mcsrvstat.us.
+- مسیرهای پایهٔ SEO شامل `robots.txt`، `sitemap.xml` و متادیتای صفحات.
+
+### حساب‌ها و پروفایل‌ها
+- صفحهٔ یکپارچهٔ انتخاب نوع حساب: «استف هستم» یا «استف نیستم».
+- ورود جداگانهٔ استف و بازیکنان؛ ثبت‌نام عمومی فقط برای بازیکنان.
+- پروفایل بازیکن و پروفایل استف با نام نمایشی و تصویر پروفایل.
+- بارگذاری تصویر از فایل دستگاه؛ PNG، JPEG، WEBP و GIF تا حداکثر ۱٫۵ مگابایت.
+- اعلان‌های شخصی، از جمله اعلان پاسخ به دیدگاه یا اخطار مرتبط با استف؛ امکان علامت‌گذاری اعلان به‌عنوان خوانده‌شده.
+
+### داشبورد استف
+- کنترل دسترسی بر اساس نقش.
+- ساخت و برداشتن مسئولیت پروژه‌ها.
+- ثبت اخطار برای اعضای استف مجاز، همراه با دلیل و مدرک اختیاری.
+- مدیریت مطالب مرکز آموزش، برچسب‌ها، دیدگاه‌ها و پاسخ‌ها برای نقش‌های دارای مجوز محتوا.
+- ایجاد و مدیریت خبرها و تغییر تصاویر سایت برای نقش‌های مجاز.
+- پاسخ مدیریت به دیدگاه با نشان قابل‌مشاهدهٔ «استف سایت».
+
+### مرکز آموزش
+- فهرست و صفحهٔ جداگانهٔ مطالب.
+- جست‌وجو در عنوان، خلاصه، محتوا و نویسنده.
+- برچسب‌ها و فیلتر بر اساس برچسب.
+- بازخورد مثبت/منفی و دیدگاه کاربران واردشده.
+- پاسخ استف مجاز و اعلان برای نویسندهٔ دیدگاه.
+- پاک‌سازی HTML محتوا با Bleach بر اساس فهرست تگ‌ها و ویژگی‌های مجاز.
+
+### اخبار
+- فهرست عمومی در `/news` و صفحهٔ هر خبر در `/news/<news_id>`.
+- عنوان، خلاصه، محتوا، نویسنده، تاریخ و تصویر جلد اختیاری.
+- پیش‌نمایش خبرها در صفحهٔ اصلی.
+- ایجاد خبر از داشبورد برای نقش دارای مجوز مدیریت محتوا.
+
+## ساختار پروژه
+
+```text
+Miladcraft-website/
+├── app.py                 # برنامه Flask، مسیرها، مجوزها و منطق دیتابیس
+├── requirements.txt       # وابستگی‌های Python
+├── Procfile               # فرمان اجرای Gunicorn
+├── README.md              # این راهنما
+├── templates/             # قالب‌های HTML/Jinja
+│   ├── index.html
+│   ├── dashboard.html
+│   ├── account_portal.html
+│   ├── account_login.html
+│   ├── account_register.html
+│   ├── account_profile.html
+│   ├── staff_profile.html
+│   ├── academy.html
+│   ├── post.html
+│   ├── editor.html
+│   ├── news.html
+│   └── news_detail.html
+├── static/
+│   ├── style.css
+│   └── logo.svg
+└── data/                  # محل پیش‌فرض دیتابیس محلی؛ نباید به Git اضافه شود
+```
+
+این فهرست مهم‌ترین فایل‌ها را نشان می‌دهد؛ مخزن می‌تواند فایل‌های قالب یا منابع دیگری نیز داشته باشد.
+
+## فناوری‌ها
+
+- Python و Flask؛
+- Jinja برای قالب‌های HTML؛
+- SQLite برای حساب‌ها و محتوای سایت؛
+- Gunicorn برای اجرای برنامه در استقرار؛
+- Bleach برای پاک‌سازی HTML؛
+- HTML و CSS برای رابط کاربری.
+
+## اجرای محلی
+
+### پیش‌نیاز
+Python 3.10 یا جدیدتر پیشنهاد می‌شود.
+
+### ۱. دریافت مخزن
+
 ```bash
-python -m venv .venv
-# Windows: .venv\\Scripts\\activate
-# macOS/Linux: source .venv/bin/activate
+git clone https://github.com/russhabot/Miladcraft-website.git
+cd Miladcraft-website
+```
+
+### ۲. محیط مجازی و وابستگی‌ها
+
+Windows PowerShell:
+
+```powershell
+py -m venv .venv
+.\.venv\Scripts\Activate.ps1
 pip install -r requirements.txt
 ```
 
-Set these environment variables before running:
-- `SECRET_KEY`: long random secret; required for production.
-- `BOOTSTRAP_OWNER_USERNAME`: initial Owner username.
-- `BOOTSTRAP_OWNER_PASSWORD`: initial Owner password (minimum 10 characters).
-- `TELEGRAM_URL`: optional Telegram channel URL; defaults to https://t.me/Milad_craft.
-- `DATA_DIR`: directory for SQLite data; use a persistent mounted volume in production.
-- `COOKIE_SECURE=true`: keep enabled for HTTPS deployments.
+Linux/macOS:
 
-Run `python app.py` and open http://127.0.0.1:8080.
+```bash
+python3 -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt
+```
 
-## Railway
-Deploy from this repository using the included Procfile. Configure the environment variables above and attach a persistent volume, setting DATA_DIR to its mount path. Never commit real credentials to GitHub.
+### ۳. تنظیم و اجرا
 
-## Initial role matrix
-| Role | Claim project | Create project | Issue warning | Academy editor | Manage staff |
-| --- | --- | --- | --- | --- | --- |
-| Builder | Yes | No | No | No | No |
-| H-Builder | No | Yes | Yes | No | No |
-| Developer | Yes | Yes | Yes | Yes | Yes |
-| Owner | Yes | Yes | Yes | Yes | Yes |
+نمونهٔ Windows PowerShell برای اجرای محلی با HTTP:
 
-## Before public production
-Add CSRF protection and login rate limiting, verify the status provider's response in the deployed environment, and confirm Railway persistent storage is configured. The server status is informational and can be temporarily unavailable if the external status API does not respond.
+```powershell
+$env:SECRET_KEY = "replace-with-a-long-random-secret"
+$env:COOKIE_SECURE = "false"
+$env:BOOTSTRAP_OWNER_USERNAME = "your_admin_username"
+$env:BOOTSTRAP_OWNER_PASSWORD = "use-a-strong-unique-password"
+python app.py
+```
+
+سپس به [http://127.0.0.1:8080](http://127.0.0.1:8080) بروید. برنامه هنگام راه‌اندازی جدول‌های لازم را ایجاد می‌کند.
+
+برای محیط عمومی HTTPS، مقدار `COOKIE_SECURE` را روی `true` قرار دهید. در محیط محلی HTTP باید `COOKIE_SECURE=false` باشد تا کوکی نشست توسط مرورگر ارسال شود.
+
+## متغیرهای محیطی
+
+| متغیر | کاربرد | پیش‌فرض یا نکته |
+|---|---|---|
+| `SECRET_KEY` | امضای نشست Flask | برای استقرار یک مقدار تصادفی و محرمانه تنظیم کنید؛ مقدار پیش‌فرض فقط برای توسعه است. |
+| `COOKIE_SECURE` | تنظیم ویژگی Secure کوکی | پیش‌فرض `true`؛ برای localhost روی HTTP مقدار `false` |
+| `DATA_DIR` | پوشهٔ داده | پیش‌فرض `data` |
+| `DB_PATH` | مسیر فایل SQLite | پیش‌فرض `data/miladcraft.db` |
+| `PORT` | پورت اجرا | پیش‌فرض `8080`؛ میزبان می‌تواند آن را تعیین کند. |
+| `TELEGRAM_URL` | لینک تلگرام | پیش‌فرض `https://t.me/Milad_craft` |
+| `BOOTSTRAP_OWNER_USERNAME` | نام حساب اولیهٔ مدیر | اختیاری؛ همراه رمز استفاده شود. |
+| `BOOTSTRAP_OWNER_PASSWORD` | رمز حساب اولیهٔ مدیر | اختیاری؛ محرمانه و قوی باشد. |
+
+### رفتار حساب bootstrap
+اگر هر دو متغیر `BOOTSTRAP_OWNER_USERNAME` و `BOOTSTRAP_OWNER_PASSWORD` تنظیم شوند، برنامه حسابی با نقش **Developer** ایجاد می‌کند یا حساب موجود با همان نام را به‌روزرسانی می‌کند. نشانگر داخلی برنامه از تکرار غیرضروری این عملیات جلوگیری می‌کند. تغییر این متغیرها می‌تواند باعث اعمال دوبارهٔ اطلاعات حساب شود؛ با احتیاط تغییرشان دهید. رمز را در کد یا README ذخیره نکنید.
+
+## استقرار در Railway
+
+1. ریپازیتوری را در Railway متصل کنید و سرویس وب بسازید.
+2. در Variables، مقدار امن `SECRET_KEY` و سایر متغیرهای لازم را تنظیم کنید.
+3. برای سایت عمومی HTTPS، `COOKIE_SECURE=true) باشد.
+4. فرمان اجرا در `Procfile` تعریف شده است:
+
+   ```text
+   web: gunicorn app:app
+   ```
+
+5. Deploy را اجرا کنید و لاگ‌های build و runtime را بررسی کنید.
+6. صفحهٔ اصلی، ورود، ثبت‌نام، پروفایل، وضعیت سرور و ذخیرهٔ داده‌ها را آزمایش کنید.
+
+### مهم: نگه‌داری دیتابیس پس از Deploy
+SQLite یک فایل روی دیسک است. فایل‌سیستم کانتینر ممکن است موقت باشد؛ بدون فضای پایدار ممکن است دیتابیس با تعویض کانتینر یا Deploy از دست برود.
+
+- یک Volume پایدار به سرویس متصل کنید.
+- `DB_PATH` را به مسیری داخل همان Volume تنظیم کنید؛ برای مثال اگر Volume در `/data` متصل است، `DB_PATH=/data/miladcraft.db`.
+- قبل از تغییر مسیر، از دیتابیس فعلی نسخهٔ پشتیبان تهیه کنید و در صورت نیاز فایل را منتقل کنید.
+- مسیر جدیدی که به فایل دیتابیس خالی اشاره کند، اطلاعات قبلی را خودکار منتقل نمی‌کند.
+
+## نقش‌ها و مجوزها
+
+مجوزها در `ROLE_PERMISSIONS` داخل `app.py` تعریف شده‌اند.
+
+| نقش | مجوزهای تعریف‌شده |
+|---|---|
+| **Builder** | مشاهدهٔ پروژه‌ها و برداشتن مسئولیت پروژه |
+| **H-Builder** | مشاهده و ساخت پروژه، ثبت اخطار |
+| **Developer** | دسترسی کامل، پروژه‌ها، اخطارها و مدیریت محتوا |
+| **Owner** | همان مجموعهٔ مجوزهای کامل تعریف‌شده برای Developer |
+
+ورود استف در `/staff/login` انجام می‌شود. حساب استف از ثبت‌نام عمومی ساخته نمی‌شود؛ حساب اولیه را می‌توان با متغیرهای bootstrap ساخت و سایر حساب‌ها از مسیر مدیریت مجاز ایجاد می‌شوند. هنگام اضافه‌کردن نقش جدید، هم `ROLES`، هم `ROLE_PERMISSIONS`، هم کنترل دسترسی مسیرهای سرور را به‌روز کنید.
+
+پروژه‌ها عنوان، توضیحات، تعداد Builder موردنیاز، وضعیت، سازنده و مسئول ثبت‌شده دارند. اخطارها نام کاربری هدف، دلیل، مدرک اختیاری، صادرکننده و تاریخ را نگه می‌دارند.
+
+## حساب بازیکن
+
+- انتخاب نوع حساب: `/account`
+- ثبت‌نام: `/account/register`
+- ورود: `/account/login`
+- پروفایل: `/account/profile`
+
+بازیکنان می‌توانند پروفایل خود را ویرایش کنند، تصویر محلی بارگذاری کنند، اعلان‌ها را ببینند و به مطالب آموزشی دیدگاه بگذارند. تصویر باید PNG، JPEG، WEBP یا GIF و حداکثر ۱٫۵ مگابایت باشد.
+
+## مرکز آموزش و اخبار
+
+مسیرهای اصلی مرکز آموزش:
+
+| مسیر | کاربرد |
+|---|---|
+| `/academy` | فهرست، جست‌وجو و فیلتر برچسب |
+| `/academy/<post_id>` | نمایش مطلب |
+| `/academy/editor` | ویرایشگر مطالب برای نقش مجاز |
+| `/academy/tags/create` | ایجاد برچسب |
+| `/academy/<post_id>/feedback` | ثبت بازخورد |
+| `/academy/<post_id>/comment` | ثبت دیدگاه |
+| `/academy/comments/<comment_id>/reply` | پاسخ به دیدگاه |
+| `/academy/<post_id>/delete` | حذف مطلب برای نقش مجاز |
+
+محتوای غنی آموزشی با Bleach پاک‌سازی می‌شود. در صورت افزودن تگ، ویژگی یا پروتکل HTML جدید، فهرست مجاز در `app.py` را بازبینی کنید.
+
+مسیرهای اخبار:
+
+- `/news`: فهرست خبرها.
+- `/news/<news_id>`: جزئیات خبر.
+- `/news/create`: ثبت خبر برای نقش دارای مجوز مدیریت محتوا.
+
+## پایگاه داده
+
+فایل SQLite پیش‌فرض: `data/miladcraft.db`. مسیر آن با `DB_PATH` قابل تغییر است. جدول‌های اصلی:
+
+| جدول | محتوا |
+|---|---|
+| `staff` | حساب‌ها و نقش‌های استف |
+| `members` | حساب‌ها و پروفایل بازیکنان |
+| `site_settings` | تنظیمات و تصاویر سایت |
+| `projects` | پروژه‌ها |
+| `warnings` | اخطارهای استف |
+| `notifications` | اعلان‌ها |
+| `posts` | مطالب آموزشی |
+| `academy_tags` | برچسب‌ها |
+| `post_tags` | اتصال مطالب به برچسب‌ها |
+| `post_comments` | دیدگاه‌ها و پاسخ‌ها |
+| `post_feedback` | بازخورد مثبت/منفی |
+| `news` | اخبار |
+| `app_meta` | نشانگرهای داخلی برنامه |
+
+برای تغییر ساختار دیتابیس در نسخه‌های بعدی migration سازگار اضافه کنید و پیش از تغییرات مهم پشتیبان بگیرید. فایل دیتابیس و نسخه‌های پشتیبان را در Git قرار ندهید.
+
+### نسخهٔ پشتیبان
+1. از فایل مشخص‌شده در `DB_PATH` کپی امن تهیه کنید.
+2. نسخهٔ پشتیبان را بیرون از مخزن و در محل دارای دسترسی محدود نگه دارید.
+3. بازیابی نسخهٔ پشتیبان را در محیط آزمایشی بررسی کنید.
+
+## مسیرهای عمومی و سیستمی
+
+| مسیر | کاربرد |
+|---|---|
+| `/` | صفحهٔ اصلی |
+| `/api/server-status` | وضعیت سرور در قالب JSON |
+| `/robots.txt` | دستورالعمل خزنده‌ها |
+| `/sitemap.xml` | نقشهٔ سایت |
+| `/account` | انتخاب نوع حساب |
+| `/staff` | داشبورد استف |
+| `/staff/profile` | پروفایل استف |
+| `/news` | اخبار |
+| `/academy` | مرکز آموزش |
+
+مسیرهای مدیریتی و عملیات تغییردهندهٔ داده به نشست یا مجوز مناسب نیاز دارند. برای درخواست‌های تغییردهنده از فرم‌ها و روش‌های HTTP تعریف‌شده در برنامه استفاده کنید.
+
+## امنیت
+
+- برای محیط عمومی حتماً `SECRET_KEY` امن و محرمانه تنظیم کنید.
+- HTTPS را فعال نگه دارید و در محیط HTTPS از `COOKIE_SECURE=true` استفاده کنید.
+- رمزهای عبور را در سورس کد، README یا Git قرار ندهید.
+- فایل‌های `.env`، دیتابیس، پشتیبان‌ها، `__pycache__` و محیط مجازی نباید commit شوند.
+- دسترسی مدیریتی باید سمت سرور کنترل شود؛ پنهان‌کردن دکمه به‌تنهایی کافی نیست.
+- برای فایل‌ها و ورودی‌های جدید، اعتبارسنجی نوع و اندازه را حفظ کنید.
+- قبل از Deploy، نقش‌ها، ورود و خروج، بارگذاری تصویر، جست‌وجو و ذخیرهٔ دیتابیس را آزمایش کنید.
+
+## عیب‌یابی
+
+**برنامه اجرا نمی‌شود**
+- اجرا کنید: `pip install -r requirements.txt`.
+- خطای Python/Jinja را در لاگ‌ها بررسی کنید.
+- فرمان استقرار باید `gunicorn app:app` باشد.
+
+**ورود در localhost کار نمی‌کند**
+- در HTTP محلی، `COOKIE_SECURE=false) تنظیم کنید.
+- مقدار `SECRET_KEY` را بررسی کنید.
+
+**داده‌ها پس از Deploy ناپدید شده‌اند**
+- مقدار `DB_PATH) و محل واقعی فایل را بررسی کنید.
+- مطمئن شوید فایل دیتابیس روی Volume پایدار است.
+- پیش از هر انتقال یا جایگزینی، نسخهٔ پشتیبان تهیه کنید.
+
+**وضعیت سرور در دسترس نیست**
+- `/api/server-status` را باز کنید.
+- این endpoint از `api.mcsrvstat.us` استفاده می‌کند؛ اختلال شبکه یا سرویس خارجی می‌تواند وضعیت نامشخص برگرداند و لزوماً به معنی خاموش‌بودن سرور نیست.
+
+**تصویر پروفایل پذیرفته نمی‌شود**
+- فقط PNG، JPEG، WEBP یا GIF و حداکثر ۱٫۵ مگابایت استفاده کنید.
+
+## توسعه و مشارکت
+
+1. برای تغییرات بزرگ، شاخهٔ کاری جداگانه بسازید.
+2. تغییرات دیتابیس را با نسخه‌های قبلی سازگار نگه دارید.
+3. مسیرها را با نقش‌های مختلف آزمایش کنید.
+4. رابط کاربری موبایل و لاگ‌های استقرار را بررسی کنید.
+5. اطلاعات محرمانه و فایل‌های دیتابیس را به commit اضافه نکنید.
+
+## مالکیت و مجوز
+
+این مخزن برای پروژهٔ وب‌سایت MILAD CRAFT نگه‌داری می‌شود. شرایط بازاستفاده و انتشار باید مطابق مجوزی باشد که مالک پروژه رسماً به مخزن اضافه می‌کند.
