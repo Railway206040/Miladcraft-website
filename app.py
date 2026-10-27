@@ -79,6 +79,7 @@ def init_db():
           PRIMARY KEY(post_id, member_id));
         """)
         image_defaults = {
+            "site_logo": "",
             "hero_image": "https://images.unsplash.com/photo-1542751371-adc38448a05e?auto=format&fit=crop&w=1800&q=85",
             "about_image": "https://images.unsplash.com/photo-1511512578047-dfb367046420?auto=format&fit=crop&w=1000&q=85",
             "roleplay_image": "https://images.unsplash.com/photo-1493711662062-fa5416f8d4db?auto=format&fit=crop&w=1100&q=85",
@@ -137,7 +138,9 @@ def security_headers(response):
 
 @app.context_processor
 def common_template_values():
-    return {"server_address": SERVER_ADDRESS, "telegram_url": TELEGRAM_URL}
+    with connect_db() as db:
+        site_images = {row["setting_key"]: row["setting_value"] for row in db.execute("SELECT setting_key,setting_value FROM site_settings")}
+    return {"server_address": SERVER_ADDRESS, "telegram_url": TELEGRAM_URL, "site_images": site_images}
 
 @app.route("/")
 def index():
@@ -250,6 +253,7 @@ def dashboard():
 @permission_required("full_access")
 def update_site_images():
     defaults = {
+        "site_logo": "",
         "hero_image": "https://images.unsplash.com/photo-1542751371-adc38448a05e?auto=format&fit=crop&w=1800&q=85",
         "about_image": "https://images.unsplash.com/photo-1511512578047-dfb367046420?auto=format&fit=crop&w=1000&q=85",
         "roleplay_image": "https://images.unsplash.com/photo-1493711662062-fa5416f8d4db?auto=format&fit=crop&w=1100&q=85",
