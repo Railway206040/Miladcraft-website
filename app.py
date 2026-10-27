@@ -54,6 +54,28 @@ def init_db():
           content TEXT NOT NULL, cover_url TEXT DEFAULT '', author TEXT NOT NULL,
           published INTEGER NOT NULL DEFAULT 1, created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
           updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP);
+        CREATE TABLE IF NOT EXISTS members (
+          id INTEGER PRIMARY KEY AUTOINCREMENT, username TEXT UNIQUE NOT NULL,
+          password_hash TEXT NOT NULL, display_name TEXT NOT NULL DEFAULT '',
+          avatar_url TEXT NOT NULL DEFAULT '', created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP);
+        CREATE TABLE IF NOT EXISTS academy_tags (
+          id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT UNIQUE NOT NULL,
+          slug TEXT UNIQUE NOT NULL, created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP);
+        CREATE TABLE IF NOT EXISTS post_tags (
+          post_id INTEGER NOT NULL REFERENCES posts(id) ON DELETE CASCADE,
+          tag_id INTEGER NOT NULL REFERENCES academy_tags(id) ON DELETE CASCADE,
+          PRIMARY KEY(post_id, tag_id));
+        CREATE TABLE IF NOT EXISTS post_comments (
+          id INTEGER PRIMARY KEY AUTOINCREMENT, post_id INTEGER NOT NULL REFERENCES posts(id) ON DELETE CASCADE,
+          member_id INTEGER NOT NULL REFERENCES members(id) ON DELETE CASCADE,
+          body TEXT NOT NULL, reply_text TEXT NOT NULL DEFAULT '', replied_by TEXT NOT NULL DEFAULT '',
+          replied_at TEXT, created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP);
+        CREATE TABLE IF NOT EXISTS post_feedback (
+          post_id INTEGER NOT NULL REFERENCES posts(id) ON DELETE CASCADE,
+          member_id INTEGER NOT NULL REFERENCES members(id) ON DELETE CASCADE,
+          vote INTEGER NOT NULL CHECK(vote IN (-1,1)),
+          created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+          PRIMARY KEY(post_id, member_id));
         """)
         image_defaults = {
             "hero_image": "https://images.unsplash.com/photo-1542751371-adc38448a05e?auto=format&fit=crop&w=1800&q=85",
@@ -297,17 +319,160 @@ def create_staff():
 
 @app.route("/academy")
 def academy():
+    tag_filter = request.args.get("tag", type=int)
     with connect_db() as db:
-        posts = db.execute("SELECT id,title,summary,cover_url,author,created_at FROM posts WHERE published=1 ORDER BY id DESC").fetchall()
-    return render_template("academy.html", posts=posts)
+        tags = db.execute("SELECT * FROM academy_tags ORDER BY name COLLATE NOCASE").fetchall()
+        if tag_filter:
+            posts = db.execute("SELECT p.id,p.title,p.summary,p.cover_url,p.author,p.created_at FROM posts p JOIN post_tags pt ON pt.post_id=p.id WHERE p.published=1 AND pt.tag_id=? ORDER BY p.id DESC", (tag_filter,)).fetchall()
+        else:
+            posts = db.execute("SELECT id,title,summary,cover_url,author,created_at FROM posts WHERE published=1 ORDER BY id DESC").fetchall()
+        tags_by_post = {}
+        for post in posts:
+            tags_by_post[post["id"]] = db.execute("SELECT t.id,t.name FROM academy_tags t JOIN post_tags pt ON pt.tag_id=t.id WHERE pt.post_id=? ORDER BY t.name", (post["id"],)).fetchall()
+    return render_template("academy.html", posts=posts, tags=tags, tags_by_post=tags_by_post, selected_tag=tag_filter)
 
 @app.route("/academy/<int:post_id>")
 def blog_post(post_id):
     with connect_db() as db:
         post = db.execute("SELECT * FROM posts WHERE id=? AND published=1", (post_id,)).fetchone()
+        tags = db.execute("SELECT t.id,t.name FROM academy_tags t JOIN post_tags pt ON pt.tag_id=t.id WHERE pt.post_id=? ORDER BY t.name", (post_id,)).fetchall()
+        comments = db.execute("SELECT c.*,m.username,m.display_name,m.avatar_url FROM post_comments c JOIN members m ON m.id=c.member_id WHERE c.post_id=? ORDER BY c.id DESC", (post_id,)).fetchall()
+        feedback = db.execute("SELECT vote,COUNT(*) AS total FROM post_feedback WHERE post_id=? GROUP BY vote", (post_id,)).fetchall()
+        my_vote = db.execute("SELECT vote FROM post_feedback WHERE post_id=? AND member_id=?", (post_id, session.get("member_id", -1))).fetchone()
     if not post:
         abort(404)
-    return render_template("post.html", post=post)
+    vote_counts = {row["vote"]: row["total"] for row in feedback}
+    return render_template("post.html", post=post, tags=tags, comments=comments,
+                           likes=vote_counts.get(1, 0), dislikes=vote_counts.get(-1, 0),
+                           my_vote=my_vote["vote"] if my_vote else 0)
+
+@app.route("/academy/<int:post_id>/feedback", methods=["POST"])
+def academy_feedback(post_id):
+    if not session.get("member_id"):
+        flash("برای ثبت نظر مفید بودن آموزش، ابتدا در سایت وارد شوید.", "error")
+        return redirect(url_for("account_login", next=url_for("blog_post", post_id=post_id)))
+    vote = request.form.get("vote", type=int)
+    if vote not in (-1, 1):
+        abort(400)
+    with connect_db() as db:
+        if not db.execute("SELECT id FROM posts WHERE id=? AND published=1", (post_id,)).fetchone():
+            abort(404)
+        db.execute("INSERT INTO post_feedback(post_id,member_id,vote) VALUES(?,?,?) ON CONFLICT(post_id,member_id) DO UPDATE SET vote=excluded.vote,created_at=CURRENT_TIMESTAMP",
+                   (post_id, session["member_id"], vote))
+    return redirect(url_for("blog_post", post_id=post_id) + "#article-feedback")
+
+@app.route("/academy/<int:post_id>/comment", methods=["POST"])
+def academy_comment(post_id):
+    if not session.get("member_id"):
+        flash("برای نوشتن دیدگاه یا پرسش، ابتدا وارد حساب کاربری شوید.", "error")
+        return redirect(url_for("account_login", next=url_for("blog_post", post_id=post_id)))
+    body = bleach.clean(request.form.get("body", "").strip(), tags=[], strip=True)
+    if not body or len(body) > 3000:
+        flash("متن دیدگاه باید بین ۱ تا ۳۰۰۰ نویسه باشد.", "error")
+        return redirect(url_for("blog_post", post_id=post_id) + "#questions")
+    with connect_db() as db:
+        if not db.execute("SELECT id FROM posts WHERE id=? AND published=1", (post_id,)).fetchone():
+            abort(404)
+        db.execute("INSERT INTO post_comments(post_id,member_id,body) VALUES(?,?,?)",
+                   (post_id, session["member_id"], body))
+    flash("دیدگاه یا پرسش شما ثبت شد.", "success")
+    return redirect(url_for("blog_post", post_id=post_id) + "#questions")
+
+@app.route("/academy/comments/<int:comment_id>/reply", methods=["POST"])
+@permission_required("blog_manage")
+def reply_to_comment(comment_id):
+    reply_text = bleach.clean(request.form.get("reply_text", "").strip(), tags=[], strip=True)
+    if not reply_text or len(reply_text) > 3000:
+        flash("پاسخ باید بین ۱ تا ۳۰۰۰ نویسه باشد.", "error")
+        return redirect(url_for("dashboard") + "#academy-questions")
+    with connect_db() as db:
+        comment = db.execute("SELECT post_id FROM post_comments WHERE id=?", (comment_id,)).fetchone()
+        if not comment:
+            abort(404)
+        db.execute("UPDATE post_comments SET reply_text=?,replied_by=?,replied_at=CURRENT_TIMESTAMP WHERE id=?",
+                   (reply_text, session["username"], comment_id))
+    flash("پاسخ شما ثبت شد.", "success")
+    return redirect(url_for("dashboard") + "#academy-questions")
+
+@app.route("/academy/tags/create", methods=["POST"])
+@permission_required("blog_manage")
+def create_academy_tag():
+    import re
+    name = bleach.clean(request.form.get("name", "").strip(), tags=[], strip=True)
+    if not name or len(name) > 40:
+        flash("نام تگ باید بین ۱ تا ۴۰ نویسه باشد.", "error")
+    else:
+        slug = "tag-" + __import__("hashlib").sha256(name.casefold().encode("utf-8")).hexdigest()[:12]
+        try:
+            with connect_db() as db:
+                db.execute("INSERT INTO academy_tags(name,slug) VALUES(?,?)", (name, slug))
+            flash("تگ جدید ساخته شد.", "success")
+        except sqlite3.IntegrityError:
+            flash("این تگ قبلاً ساخته شده است.", "error")
+    return redirect(url_for("dashboard") + "#academy-tags")
+
+@app.route("/account/register", methods=["GET", "POST"])
+def account_register():
+    if request.method == "POST":
+        username = request.form.get("username", "").strip()
+        password = request.form.get("password", "")
+        display_name = bleach.clean(request.form.get("display_name", "").strip(), tags=[], strip=True)[:80]
+        if len(username) < 3 or len(username) > 30 or not username.replace("_", "").isalnum() or len(password) < 10:
+            flash("نام کاربری باید ۳ تا ۳۰ حرف/عدد یا زیرخط و رمز عبور حداقل ۱۰ کاراکتر باشد.", "error")
+        else:
+            try:
+                with connect_db() as db:
+                    db.execute("INSERT INTO members(username,password_hash,display_name) VALUES(?,?,?)",
+                               (username, generate_password_hash(password), display_name or username))
+                flash("ثبت‌نام انجام شد؛ اکنون وارد حساب شوید.", "success")
+                return redirect(url_for("account_login"))
+            except sqlite3.IntegrityError:
+                flash("این نام کاربری قبلاً ثبت شده است.", "error")
+    return render_template("account_register.html")
+
+@app.route("/account/login", methods=["GET", "POST"])
+def account_login():
+    if request.method == "POST":
+        username = request.form.get("username", "").strip()
+        password = request.form.get("password", "")
+        with connect_db() as db:
+            member = db.execute("SELECT * FROM members WHERE username=?", (username,)).fetchone()
+        if member and check_password_hash(member["password_hash"], password):
+            session["member_id"] = member["id"]
+            session["member_username"] = member["username"]
+            return redirect(request.args.get("next") or url_for("account_profile"))
+        flash("نام کاربری یا رمز عبور اشتباه است.", "error")
+    return render_template("account_login.html")
+
+@app.route("/account/logout", methods=["POST"])
+def account_logout():
+    session.pop("member_id", None)
+    session.pop("member_username", None)
+    return redirect(url_for("index"))
+
+@app.route("/account/profile", methods=["GET", "POST"])
+def account_profile():
+    if not session.get("member_id"):
+        return redirect(url_for("account_login"))
+    with connect_db() as db:
+        member = db.execute("SELECT * FROM members WHERE id=?", (session["member_id"],)).fetchone()
+        if not member:
+            session.pop("member_id", None)
+            session.pop("member_username", None)
+            return redirect(url_for("account_login"))
+        if request.method == "POST":
+            display_name = bleach.clean(request.form.get("display_name", "").strip(), tags=[], strip=True)[:80]
+            avatar_url = request.form.get("avatar_url", "").strip()
+            if avatar_url and (not avatar_url.startswith("https://") or len(avatar_url) > 1500):
+                flash("لینک تصویر پروفایل باید با https:// شروع شود.", "error")
+            else:
+                db.execute("UPDATE members SET display_name=?,avatar_url=? WHERE id=?",
+                           (display_name or member["username"], avatar_url, member["id"]))
+                flash("پروفایل ذخیره شد.", "success")
+                return redirect(url_for("account_profile"))
+        member = db.execute("SELECT * FROM members WHERE id=?", (session["member_id"],)).fetchone()
+        comments = db.execute("SELECT c.id,c.body,c.created_at,c.post_id,p.title FROM post_comments c JOIN posts p ON p.id=c.post_id WHERE c.member_id=? ORDER BY c.id DESC LIMIT 20", (session["member_id"],)).fetchall()
+    return render_template("account_profile.html", member=member, comments=comments)
 
 @app.route("/academy/editor", methods=["GET", "POST"])
 @permission_required("blog_manage")
@@ -315,6 +480,8 @@ def blog_editor():
     post_id = request.args.get("id", type=int)
     with connect_db() as db:
         post = db.execute("SELECT * FROM posts WHERE id=?", (post_id,)).fetchone() if post_id else None
+        tags = db.execute("SELECT * FROM academy_tags ORDER BY name COLLATE NOCASE").fetchall()
+        selected_tag_ids = [row["tag_id"] for row in db.execute("SELECT tag_id FROM post_tags WHERE post_id=?", (post_id,)).fetchall()] if post_id else []
         if request.method == "POST":
             title = request.form.get("title", "").strip()
             summary = request.form.get("summary", "").strip()
@@ -322,19 +489,28 @@ def blog_editor():
             content = bleach.clean(request.form.get("content", ""), tags=BLOG_TAGS, attributes=BLOG_ATTRS,
                                    protocols=BLOG_PROTOCOLS, strip=True)
             published = 1 if request.form.get("published") == "1" else 0
+            selected_tag_ids = list({int(value) for value in request.form.getlist("tag_ids") if value.isdigit()})
             if not title or not bleach.clean(content, tags=[], strip=True).strip():
                 flash("عنوان و محتوای مقاله الزامی است.", "error")
             elif post_id and post:
                 db.execute("UPDATE posts SET title=?,summary=?,cover_url=?,content=?,published=?,updated_at=CURRENT_TIMESTAMP WHERE id=?",
                            (title, summary, cover_url, content, published, post_id))
+                db.execute("DELETE FROM post_tags WHERE post_id=?", (post_id,))
+                for tag_id in selected_tag_ids:
+                    if db.execute("SELECT id FROM academy_tags WHERE id=?", (tag_id,)).fetchone():
+                        db.execute("INSERT OR IGNORE INTO post_tags(post_id,tag_id) VALUES(?,?)", (post_id, tag_id))
                 flash("مقاله به‌روزرسانی شد.", "success")
-                return redirect(url_for("dashboard"))
+                return redirect(url_for("dashboard") + "#academy-content")
             else:
-                db.execute("INSERT INTO posts(title,summary,cover_url,content,author,published) VALUES(?,?,?,?,?,?)",
-                           (title, summary, cover_url, content, session["username"], published))
+                cur = db.execute("INSERT INTO posts(title,summary,cover_url,content,author,published) VALUES(?,?,?,?,?,?)",
+                                 (title, summary, cover_url, content, session["username"], published))
+                new_post_id = cur.lastrowid
+                for tag_id in selected_tag_ids:
+                    if db.execute("SELECT id FROM academy_tags WHERE id=?", (tag_id,)).fetchone():
+                        db.execute("INSERT OR IGNORE INTO post_tags(post_id,tag_id) VALUES(?,?)", (new_post_id, tag_id))
                 flash("مقاله ایجاد شد.", "success")
-                return redirect(url_for("dashboard"))
-    return render_template("editor.html", post=post)
+                return redirect(url_for("dashboard") + "#academy-content")
+    return render_template("editor.html", post=post, tags=tags, selected_tag_ids=selected_tag_ids)
 
 @app.route("/academy/<int:post_id>/delete", methods=["POST"])
 @permission_required("blog_manage")
