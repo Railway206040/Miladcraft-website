@@ -92,7 +92,7 @@ def common_template_values():
 def index():
     with connect_db() as db:
         posts = db.execute("SELECT id,title,summary,cover_url,author,created_at FROM posts WHERE published=1 ORDER BY id DESC LIMIT 3").fetchall()
-    return render_template("index.html", posts=posts)
+    return render_template("index.html", posts=posts, server_address=SERVER_ADDRESS, telegram_url=TELEGRAM_URL)
 
 @app.route("/api/server-status")
 def server_status():
