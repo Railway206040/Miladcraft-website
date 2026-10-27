@@ -1,4 +1,5 @@
 import os
+import base64
 import sqlite3
 from functools import wraps
 from pathlib import Path
@@ -43,6 +44,17 @@ def init_db():
           created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP);
         CREATE TABLE IF NOT EXISTS site_settings (
           setting_key TEXT PRIMARY KEY, setting_value TEXT NOT NULL DEFAULT '');
+        CREATE TABLE IF NOT EXISTS notifications (
+          id INTEGER PRIMARY KEY AUTOINCREMENT, recipient_type TEXT NOT NULL CHECK(recipient_type IN ('member','staff')),
+          recipient_id INTEGER NOT NULL, title TEXT NOT NULL, body TEXT NOT NULL DEFAULT '',
+          target_url TEXT NOT NULL DEFAULT '/', is_read INTEGER NOT NULL DEFAULT 0,
+          created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP);
+        CREATE INDEX IF NOT EXISTS idx_notifications_recipient ON notifications(recipient_type,recipient_id,is_read,created_at);
+        CREATE TABLE IF NOT EXISTS news (
+          id INTEGER PRIMARY KEY AUTOINCREMENT, title TEXT NOT NULL, summary TEXT NOT NULL DEFAULT '',
+          content TEXT NOT NULL, cover_url TEXT NOT NULL DEFAULT '', author TEXT NOT NULL,
+          published INTEGER NOT NULL DEFAULT 1, created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP);
+
         CREATE TABLE IF NOT EXISTS projects (
           id INTEGER PRIMARY KEY AUTOINCREMENT, title TEXT NOT NULL, description TEXT NOT NULL,
           required_builders INTEGER NOT NULL DEFAULT 1, status TEXT NOT NULL DEFAULT 'Open',
@@ -90,6 +102,9 @@ def init_db():
         }
         for key, value in image_defaults.items():
             db.execute("INSERT OR IGNORE INTO site_settings(setting_key,setting_value) VALUES(?,?)", (key, value))
+        staff_columns = {row["name"] for row in db.execute("PRAGMA table_info(staff)")}
+        if "avatar_url" not in staff_columns: db.execute("ALTER TABLE staff ADD COLUMN avatar_url TEXT NOT NULL DEFAULT ''")
+        if "display_name" not in staff_columns: db.execute("ALTER TABLE staff ADD COLUMN display_name TEXT NOT NULL DEFAULT ''")
         # Apply bootstrap credentials once per configured username/password pair.
         # The marker prevents this from overwriting a user's later password change on every request.
         db.execute("CREATE TABLE IF NOT EXISTS app_meta (meta_key TEXT PRIMARY KEY, meta_value TEXT NOT NULL)")
@@ -146,8 +161,9 @@ def common_template_values():
 def index():
     with connect_db() as db:
         posts = db.execute("SELECT id,title,summary,cover_url,author,created_at FROM posts WHERE published=1 ORDER BY id DESC LIMIT 3").fetchall()
+        news_items = db.execute("SELECT id,title,summary,cover_url,author,created_at FROM news WHERE published=1 ORDER BY id DESC LIMIT 3").fetchall()
         site_images = {row["setting_key"]: row["setting_value"] for row in db.execute("SELECT setting_key,setting_value FROM site_settings")}
-    return render_template("index.html", posts=posts, site_images=site_images,
+    return render_template("index.html", posts=posts, news_items=news_items, site_images=site_images,
                            server_address=SERVER_ADDRESS, telegram_url=TELEGRAM_URL)
 
 @app.route("/robots.txt")
@@ -232,15 +248,17 @@ def dashboard():
         warnings = db.execute("SELECT * FROM warnings ORDER BY id DESC LIMIT 50").fetchall()
         staff = db.execute("SELECT id,username,role,created_at FROM staff ORDER BY id").fetchall() if session["role"] in ("owner", "developer") else []
         posts = db.execute("SELECT id,title,published,created_at FROM posts ORDER BY id DESC").fetchall() if "blog_manage" in ROLE_PERMISSIONS.get(session["role"], set()) else []
+        news_items = db.execute("SELECT * FROM news ORDER BY id DESC LIMIT 50").fetchall() if "blog_manage" in ROLE_PERMISSIONS.get(session["role"], set()) else []
         academy_tags = db.execute("SELECT * FROM academy_tags ORDER BY name COLLATE NOCASE").fetchall() if "blog_manage" in ROLE_PERMISSIONS.get(session["role"], set()) else []
         academy_questions = db.execute("SELECT c.*,m.username,m.display_name,m.avatar_url,p.title AS post_title FROM post_comments c JOIN members m ON m.id=c.member_id JOIN posts p ON p.id=c.post_id ORDER BY CASE WHEN c.reply_text='' THEN 0 ELSE 1 END,c.id DESC LIMIT 100").fetchall() if "blog_manage" in ROLE_PERMISSIONS.get(session["role"], set()) else []
         project_count = len(projects)
         warning_count = len(warnings)
         post_count = len(posts)
+        news_count = len(news_items)
     role = session["role"]
     with connect_db() as db:
         site_images = {row["setting_key"]: row["setting_value"] for row in db.execute("SELECT setting_key,setting_value FROM site_settings")}
-    return render_template("dashboard.html", projects=projects, warnings=warnings, staff=staff, posts=posts,
+    return render_template("dashboard.html", projects=projects, warnings=warnings, staff=staff, posts=posts, news_items=news_items, news_count=news_count,
                            academy_tags=academy_tags, academy_questions=academy_questions,
                            project_count=project_count, warning_count=warning_count, post_count=post_count,
                            site_images=site_images, role_label=ROLES.get(role, role),
@@ -316,8 +334,11 @@ def create_warning():
         if not db.execute("SELECT id FROM staff WHERE username=?", (target,)).fetchone() or not reason:
             flash("نام کاربری استف باید معتبر باشد و دلیل وارن را وارد کنید.", "error")
         else:
+            target_staff = db.execute("SELECT id FROM staff WHERE username=?", (target,)).fetchone()
             db.execute("INSERT INTO warnings(staff_username,reason,evidence_url,issued_by) VALUES(?,?,?,?)",
                        (target, reason, evidence_url, session["username"]))
+            db.execute("INSERT INTO notifications(recipient_type,recipient_id,title,body,target_url) VALUES('staff',?,?,?,?)",
+                       (target_staff["id"], "وارن جدید ثبت شد", reason[:500], url_for("staff_profile") + "#notifications"))
             flash("وارن ثبت شد.", "success")
     return redirect(url_for("dashboard"))
 
@@ -338,17 +359,26 @@ def create_staff():
 
 @app.route("/academy")
 def academy():
-    tag_filter = request.args.get("tag", type=int)
+    tag_filter=request.args.get("tag",type=int)
+    search_query=bleach.clean(request.args.get("q","").strip(),tags=[],strip=True)[:100]
     with connect_db() as db:
-        tags = db.execute("SELECT * FROM academy_tags ORDER BY name COLLATE NOCASE").fetchall()
+        tags=db.execute("SELECT * FROM academy_tags ORDER BY name COLLATE NOCASE").fetchall()
+        sql="SELECT DISTINCT p.id,p.title,p.summary,p.cover_url,p.author,p.created_at FROM posts p"
+        params=[]
         if tag_filter:
-            posts = db.execute("SELECT p.id,p.title,p.summary,p.cover_url,p.author,p.created_at FROM posts p JOIN post_tags pt ON pt.post_id=p.id WHERE p.published=1 AND pt.tag_id=? ORDER BY p.id DESC", (tag_filter,)).fetchall()
-        else:
-            posts = db.execute("SELECT id,title,summary,cover_url,author,created_at FROM posts WHERE published=1 ORDER BY id DESC").fetchall()
-        tags_by_post = {}
+            sql+=" JOIN post_tags pt ON pt.post_id=p.id AND pt.tag_id=?"
+            params.append(tag_filter)
+        sql+=" WHERE p.published=1"
+        if search_query:
+            sql+=" AND (p.title LIKE ? OR p.summary LIKE ? OR p.content LIKE ? OR p.author LIKE ?)"
+            term="%"+search_query+"%"
+            params.extend([term,term,term,term])
+        sql+=" ORDER BY p.id DESC"
+        posts=db.execute(sql,params).fetchall()
+        tags_by_post={}
         for post in posts:
-            tags_by_post[post["id"]] = db.execute("SELECT t.id,t.name FROM academy_tags t JOIN post_tags pt ON pt.tag_id=t.id WHERE pt.post_id=? ORDER BY t.name", (post["id"],)).fetchall()
-    return render_template("academy.html", posts=posts, tags=tags, tags_by_post=tags_by_post, selected_tag=tag_filter)
+            tags_by_post[post["id"]]=db.execute("SELECT t.id,t.name FROM academy_tags t JOIN post_tags pt ON pt.tag_id=t.id WHERE pt.post_id=? ORDER BY t.name",(post["id"],)).fetchall()
+    return render_template("academy.html",posts=posts,tags=tags,tags_by_post=tags_by_post,selected_tag=tag_filter,search_query=search_query)
 
 @app.route("/academy/<int:post_id>")
 def blog_post(post_id):
@@ -408,8 +438,12 @@ def reply_to_comment(comment_id):
         comment = db.execute("SELECT post_id FROM post_comments WHERE id=?", (comment_id,)).fetchone()
         if not comment:
             abort(404)
+        comment = db.execute("SELECT post_id,member_id FROM post_comments WHERE id=?", (comment_id,)).fetchone()
+        if not comment: abort(404)
         db.execute("UPDATE post_comments SET reply_text=?,replied_by=?,replied_at=CURRENT_TIMESTAMP WHERE id=?",
                    (reply_text, session["username"], comment_id))
+        db.execute("INSERT INTO notifications(recipient_type,recipient_id,title,body,target_url) VALUES('member',?,?,?,?)",
+                   (comment["member_id"], "پاسخ جدید به نظر شما", reply_text[:500], url_for("blog_post", post_id=comment["post_id"]) + "#questions"))
     flash("پاسخ شما ثبت شد.", "success")
     return redirect(url_for("dashboard") + "#academy-questions")
 
@@ -488,13 +522,91 @@ def account_profile():
             if avatar_url and (not avatar_url.startswith("https://") or len(avatar_url) > 1500):
                 flash("لینک تصویر پروفایل باید با https:// شروع شود.", "error")
             else:
+                uploaded = request.files.get("avatar_file")
+                if uploaded and uploaded.filename:
+                    mime = uploaded.mimetype or ""
+                    raw = uploaded.read(1_500_001)
+                    if mime not in ("image/png", "image/jpeg", "image/webp", "image/gif") or len(raw) > 1_500_000:
+                        flash("تصویر باید PNG، JPG، WEBP یا GIF و حداکثر ۱٫۵ مگابایت باشد.", "error")
+                        return redirect(url_for("account_profile"))
+                    avatar_url = "data:" + mime + ";base64," + base64.b64encode(raw).decode("ascii")
                 db.execute("UPDATE members SET display_name=?,avatar_url=? WHERE id=?",
                            (display_name or member["username"], avatar_url, member["id"]))
                 flash("پروفایل ذخیره شد.", "success")
                 return redirect(url_for("account_profile"))
         member = db.execute("SELECT * FROM members WHERE id=?", (session["member_id"],)).fetchone()
         comments = db.execute("SELECT c.id,c.body,c.created_at,c.post_id,p.title FROM post_comments c JOIN posts p ON p.id=c.post_id WHERE c.member_id=? ORDER BY c.id DESC LIMIT 20", (session["member_id"],)).fetchall()
-    return render_template("account_profile.html", member=member, comments=comments)
+        notifications = db.execute("SELECT * FROM notifications WHERE recipient_type='member' AND recipient_id=? ORDER BY id DESC LIMIT 50", (session["member_id"],)).fetchall()
+        unread_count = db.execute("SELECT COUNT(*) FROM notifications WHERE recipient_type='member' AND recipient_id=? AND is_read=0", (session["member_id"],)).fetchone()[0]
+    return render_template("account_profile.html", member=member, comments=comments, notifications=notifications, unread_count=unread_count)
+
+@app.route("/account")
+def account_portal(): return render_template("account_portal.html")
+
+@app.route("/account/notifications/<int:notification_id>/read",methods=["POST"])
+def member_notification_read(notification_id):
+    if not session.get("member_id"): return redirect(url_for("account_portal"))
+    with connect_db() as db:
+        db.execute("UPDATE notifications SET is_read=1 WHERE id=? AND recipient_type='member' AND recipient_id=?",(notification_id,session["member_id"]))
+        item=db.execute("SELECT target_url FROM notifications WHERE id=? AND recipient_type='member' AND recipient_id=?",(notification_id,session["member_id"])).fetchone()
+    return redirect(item["target_url"] if item else url_for("account_profile"))
+
+@app.route("/staff/profile",methods=["GET","POST"])
+def staff_profile():
+    if not session.get("staff_id"): return redirect(url_for("login"))
+    with connect_db() as db:
+        staff_member=db.execute("SELECT * FROM staff WHERE id=?",(session["staff_id"],)).fetchone()
+        if not staff_member: session.clear(); return redirect(url_for("login"))
+        if request.method=="POST":
+            display_name=bleach.clean(request.form.get("display_name","").strip(),tags=[],strip=True)[:80]
+            avatar_url=staff_member["avatar_url"]
+            uploaded=request.files.get("avatar_file")
+            if uploaded and uploaded.filename:
+                mime=uploaded.mimetype or ""; raw=uploaded.read(1_500_001)
+                if mime not in ("image/png","image/jpeg","image/webp","image/gif") or len(raw)>1_500_000:
+                    flash("تصویر باید PNG، JPG، WEBP یا GIF و حداکثر ۱٫۵ مگابایت باشد.","error"); return redirect(url_for("staff_profile"))
+                avatar_url="data:"+mime+";base64,"+base64.b64encode(raw).decode("ascii")
+            db.execute("UPDATE staff SET display_name=?,avatar_url=? WHERE id=?",(display_name or staff_member["username"],avatar_url,staff_member["id"]))
+            flash("پروفایل استف ذخیره شد.","success"); return redirect(url_for("staff_profile"))
+        staff_member=db.execute("SELECT * FROM staff WHERE id=?",(session["staff_id"],)).fetchone()
+        notifications=db.execute("SELECT * FROM notifications WHERE recipient_type='staff' AND recipient_id=? ORDER BY id DESC LIMIT 50",(session["staff_id"],)).fetchall()
+        unread_count=db.execute("SELECT COUNT(*) FROM notifications WHERE recipient_type='staff' AND recipient_id=? AND is_read=0",(session["staff_id"],)).fetchone()[0]
+        warnings=db.execute("SELECT * FROM warnings WHERE staff_username=? ORDER BY id DESC LIMIT 20",(session["username"],)).fetchall()
+        projects=db.execute("SELECT * FROM projects WHERE claimed_by=? ORDER BY id DESC LIMIT 20",(session["username"],)).fetchall()
+    return render_template("staff_profile.html",staff_member=staff_member,notifications=notifications,unread_count=unread_count,warnings=warnings,projects=projects,role_label=ROLES.get(session.get("role"),session.get("role")))
+
+@app.route("/staff/notifications/<int:notification_id>/read",methods=["POST"])
+def staff_notification_read(notification_id):
+    if not session.get("staff_id"): return redirect(url_for("login"))
+    with connect_db() as db:
+        db.execute("UPDATE notifications SET is_read=1 WHERE id=? AND recipient_type='staff' AND recipient_id=?",(notification_id,session["staff_id"]))
+        item=db.execute("SELECT target_url FROM notifications WHERE id=? AND recipient_type='staff' AND recipient_id=?",(notification_id,session["staff_id"])).fetchone()
+    return redirect(item["target_url"] if item else url_for("staff_profile"))
+
+@app.route("/news")
+def news_page():
+    with connect_db() as db: news_items=db.execute("SELECT * FROM news WHERE published=1 ORDER BY id DESC").fetchall()
+    return render_template("news.html",news_items=news_items)
+
+@app.route("/news/<int:news_id>")
+def news_detail(news_id):
+    with connect_db() as db: item=db.execute("SELECT * FROM news WHERE id=? AND published=1",(news_id,)).fetchone()
+    if not item: abort(404)
+    return render_template("news_detail.html",item=item)
+
+@app.route("/news/create",methods=["POST"])
+@permission_required("blog_manage")
+def create_news():
+    title=bleach.clean(request.form.get("title","").strip(),tags=[],strip=True)[:180]
+    summary=bleach.clean(request.form.get("summary","").strip(),tags=[],strip=True)[:500]
+    content=bleach.clean(request.form.get("content",""),tags=BLOG_TAGS,attributes=BLOG_ATTRS,protocols=BLOG_PROTOCOLS,strip=True)
+    cover_url=request.form.get("cover_url","").strip(); published=1 if request.form.get("published")=="1" else 0
+    if not title or not bleach.clean(content,tags=[],strip=True).strip(): flash("عنوان و متن خبر الزامی است.","error")
+    elif cover_url and (not cover_url.startswith("https://") or len(cover_url)>1500): flash("آدرس کاور خبر باید با https:// شروع شود.","error")
+    else:
+        with connect_db() as db: db.execute("INSERT INTO news(title,summary,content,cover_url,author,published) VALUES(?,?,?,?,?,?)",(title,summary,content,cover_url,session["username"],published))
+        flash("خبر ذخیره شد.","success")
+    return redirect(url_for("dashboard")+"#news-management")
 
 @app.route("/academy/editor", methods=["GET", "POST"])
 @permission_required("blog_manage")
