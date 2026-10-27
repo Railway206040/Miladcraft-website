@@ -1,1 +1,67 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 180 180" role="img" aria-labelledby="title"><title id="title">MILAD CRAFT tower logo</title><rect width="180" height="180" rx="18" fill="#080b10"/><path d="M24 43 151 12v111L24 155Z" fill="none" stroke="#f4f7fb" stroke-width="4" stroke-linejoin="round"/><path d="M86 15 91 57H82Z" fill="#fff"/><path d="M67 69Q87 56 108 69L116 83H59Z" fill="#fff"/><path d="M58 85Q87 75 118 85L126 94H51Z" fill="#fff"/><path d="M51 97 62 112 112 112 126 97 119 119 61 119Z" fill="#fff"/><path d="M72 119 64 149H78L83 121H91L97 149H111L101 119Z" fill="#fff"/><path d="M75 124h6v22h-6zm19 0h5v22h-5z" fill="#080b10"/><path d="M60 87 75 111 87 88 99 111 115 87M56 100l59 0" stroke="#080b10" stroke-width="3" fill="none"/><text x="90" y="170" fill="#52b3ff" font-family="Arial,sans-serif" font-size="10" font-weight="bold" text-anchor="middle" letter-spacing="2">MILAD CRAFT</text></svg>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" width="200" height="200">
+  <defs>
+    <linearGradient id="mcGrassTop" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#55ff55"/>
+      <stop offset="50%" stop-color="#38b000"/>
+      <stop offset="100%" stop-color="#2d6a4f"/>
+    </linearGradient>
+    <linearGradient id="mcDirtSide" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#865439"/>
+      <stop offset="50%" stop-color="#653d26"/>
+      <stop offset="100%" stop-color="#472816"/>
+    </linearGradient>
+    <linearGradient id="mcDiamondSide" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#55ffff"/>
+      <stop offset="100%" stop-color="#00a8a8"/>
+    </linearGradient>
+    <linearGradient id="goldGlow" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#ffd32a"/>
+      <stop offset="100%" stop-color="#ff9f1a"/>
+    </linearGradient>
+    <filter id="mcGlow" x="-20%" y="-20%" width="140%" height="140%">
+      <feGaussianBlur stdDeviation="6" result="blur"/>
+      <feComposite in="SourceGraphic" in2="blur" operator="over"/>
+    </filter>
+  </defs>
+
+  <!-- Background Shield / Stone Frame -->
+  <rect x="10" y="10" width="180" height="180" rx="16" fill="#0c0f14" stroke="#2a3b4c" stroke-width="4"/>
+  <rect x="18" y="18" width="164" height="164" rx="10" fill="none" stroke="#19232f" stroke-width="2"/>
+
+  <!-- Isometric 3D Minecraft Block -->
+  <!-- Top Face (Grass / Emerald) -->
+  <polygon points="100,32 154,62 100,92 46,62" fill="url(#mcGrassTop)" stroke="#1b4332" stroke-width="2.5"/>
+  <!-- Top Pixels Detail -->
+  <polygon points="100,38 120,49 100,60 80,49" fill="#70e000" opacity="0.55"/>
+  <polygon points="130,55 142,62 130,69 118,62" fill="#38b000" opacity="0.7"/>
+  <polygon points="70,55 82,62 70,69 58,62" fill="#2d6a4f" opacity="0.7"/>
+
+  <!-- Left Face (Dirt with Grass Hanging) -->
+  <polygon points="46,62 100,92 100,146 46,116" fill="url(#mcDirtSide)" stroke="#2d1b10" stroke-width="2.5"/>
+  <!-- Grass drip on Left -->
+  <polygon points="46,62 100,92 100,102 90,97 84,103 72,96 62,102 52,96 46,100" fill="#38b000"/>
+  <!-- Dirt Pixel Specks Left -->
+  <rect x="60" y="112" width="8" height="6" fill="#3d2314" opacity="0.6" transform="skewY(27)"/>
+  <rect x="82" y="118" width="8" height="6" fill="#9d6b53" opacity="0.5" transform="skewY(27)"/>
+
+  <!-- Right Face (Diamond Ore Inset / Shaded Dirt) -->
+  <polygon points="100,92 154,62 154,116 100,146" fill="#382215" stroke="#20130a" stroke-width="2.5"/>
+  <!-- Grass drip on Right -->
+  <polygon points="100,92 154,62 154,72 144,77 136,71 126,78 116,72 108,78 100,74" fill="#2d6a4f"/>
+  <!-- Diamond Ore Gems on Right Face -->
+  <polygon points="120,100 132,94 132,104 120,110" fill="url(#mcDiamondSide)" filter="url(#mcGlow)"/>
+  <polygon points="136,114 144,110 144,117 136,121" fill="#55ffff"/>
+  <polygon points="110,120 118,116 118,123 110,127" fill="#00a8a8"/>
+
+  <!-- Swords / Pickaxes Behind Accent (Pixel Cross) -->
+  <g opacity="0.85">
+    <!-- Pickaxe head silhouette on corner -->
+    <path d="M28 36 L40 28 L46 34 L38 42 L34 38 Z" fill="#00d2d3"/>
+    <rect x="35" y="37" width="4" height="22" fill="#865439" transform="rotate(-45 35 37)"/>
+  </g>
+
+  <!-- Banner / Text Platform -->
+  <rect x="22" y="152" width="156" height="34" rx="6" fill="#121820" stroke="#2e4053" stroke-width="2"/>
+  <text x="100" y="173" fill="url(#goldGlow)" font-family="'Press Start 2P', monospace, sans-serif" font-size="12" font-weight="bold" text-anchor="middle" letter-spacing="2">MILAD CRAFT</text>
+  <text x="100" y="182" fill="#00d2d3" font-family="Arial, sans-serif" font-size="6.5" font-weight="bold" text-anchor="middle" letter-spacing="1.5">ROLE PLAY · SURVIVAL</text>
+</svg>
