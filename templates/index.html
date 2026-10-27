@@ -44,26 +44,35 @@
     <span class="brand-text">MILAD<span>CRAFT</span></span>
   </a>
   <nav class="main-nav" aria-label="ناوبری اصلی">
-    <a href="#server">⚡ وضعیت سرور</a>
-    <a href="#modes">⚔️ گیم‌مودها</a>
-    <a href="#about">📖 درباره ما</a>
-    <a href="#why-us">🛡️ ویژگی‌ها</a>
-    <a href="#academy">📚 مرکز آموزش</a>
-    <a href="#news">📰 اخبار</a>
-    <a href="#gallery">🖼️ گالری</a>
+    <a href="#server">وضعیت سرور</a>
+    <a href="#modes">گیم‌مودها</a>
+    <a href="#about">درباره ما</a>
+    <a href="#why-us">ویژگی‌ها</a>
+    <a href="#academy">مرکز آموزش</a>
+    <a href="#news">اخبار</a>
+    <a href="#gallery">گالری</a>
   </nav>
   <div class="header-actions">
     <a class="button button-outline telegram-mini" href="{{ telegram_url }}" target="_blank" rel="noopener noreferrer" aria-label="کانال تلگرام MILAD CRAFT">
       <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M21.7 3.4 18.4 20c-.2 1.2-.9 1.5-1.8.9l-5-3.7-2.4 2.3c-.3.3-.5.5-1 .5l.4-5.1 9.3-8.4c.4-.4-.1-.6-.6-.2L6 13.5l-5-1.6c-1.1-.4-1.1-1.1.2-1.6L20.6 2c.9-.3 1.6.2 1.1 1.4Z"/></svg>
       تلگرام
     </a>
-    {% if session.get('member_id') %}
-      <a class="button" href="{{ url_for('account_profile') }}">🎮 پروفایل من</a>
+    {% if session.get('staff_id') %}
+      <a class="button" href="{{ url_for('dashboard') }}">میز کار استف</a>
+      <a class="button button-outline" href="{{ url_for('staff_profile') }}">پروفایل ({{ session.get('username') }})</a>
+      <form method="post" action="{{ url_for('logout') }}" style="margin:0;display:inline;">
+        <button class="button button-danger" type="submit">خروج</button>
+      </form>
+    {% elif session.get('member_id') %}
+      <a class="button button-login-unified" href="{{ url_for('account_profile') }}">پروفایل ({{ session.get('member_username') }})</a>
+      <form method="post" action="{{ url_for('account_logout') }}" style="margin:0;display:inline;">
+        <button class="button button-outline" type="submit">خروج</button>
+      </form>
     {% else %}
-      <a class="button" href="{{ url_for('account_portal') }}">ورود / ثبت‌نام</a>
+      <a class="button button-login-unified" href="{{ url_for('account_portal') }}">ورود / ثبت‌نام</a>
     {% endif %}
   </div>
-  <button class="mobile-menu" onclick="document.querySelector('.main-nav').classList.toggle('open')" aria-label="باز کردن منو" aria-expanded="false">☰</button>
+  <button class="mobile-menu" onclick="document.querySelector('.main-nav').classList.toggle('open')" aria-label="باز کردن منو" aria-expanded="false">منو</button>
 </header>
 
 <main id="main">
@@ -82,8 +91,8 @@
       </div>
 
       <div class="hero-actions">
-        <a class="button button-large" href="#server">⚡ ورود به سرور و بازی <span>←</span></a>
-        <a class="button button-outline button-large" href="{{ url_for('academy') }}">📚 راهنمای تازه‌واردها</a>
+        <a class="button button-large" href="#server">ورود به سرور و بازی <span>&larr;</span></a>
+        <a class="button button-outline button-large" href="{{ url_for('academy') }}">راهنمای تازه‌واردها</a>
       </div>
 
       <div class="hero-trust">
@@ -121,13 +130,13 @@
           <h3>MILAD CRAFT SERVER</h3>
           <code id="server-address">{{ server_address }}</code>
           <div class="server-meta">
-            <span id="server-version">📌 نسخه: در انتظار پاسخ</span>
-            <span id="player-count">👥 بازیکنان آنلاین: —</span>
-            <span>🎮 گیم‌مود: ROLE PLAY</span>
+            <span id="server-version">نسخه: در انتظار پاسخ</span>
+            <span id="player-count">بازیکنان آنلاین: —</span>
+            <span>گیم‌مود: ROLE PLAY</span>
           </div>
         </div>
       </div>
-      <button class="button button-large" id="copy-address" type="button">📋 کپی آدرس سرور</button>
+      <button class="button button-large" id="copy-address" type="button">کپی آدرس سرور</button>
     </div>
     <p class="tiny-note" id="status-note">آدرس سرور را در لانچر ماینکرفت (Java Edition) وارد کنید و به ما بپیوندید.</p>
   </section>
@@ -146,7 +155,7 @@
       <article class="mode-card roleplay-card">
         <img src="{{ site_images.roleplay_image }}" onerror="this.onerror=null;this.src='https://images.unsplash.com/photo-1493711662062-fa5416f8d4db?auto=format&fit=crop&w=1100&q=80'" alt="محیط رول‌پلی ماینکرفت" loading="lazy">
         <div class="mode-card-overlay">
-          <span class="mode-status">💎 اکنون فعال و در دسترس</span>
+          <span class="mode-status">اکنون فعال و در دسترس</span>
           <p class="eyebrow">01 / ROLE PLAY</p>
           <h3>ROLE PLAY</h3>
           <p>شغل خود را انتخاب کنید، با پلیس، دادگاه، کسب‌وکارها و دیگر شهروندان تعامل داشته باشید و سرنوشت خود را در شهری زنده رقم بزنید.</p>
@@ -157,7 +166,7 @@
       <article class="mode-card survival-card">
         <img src="{{ site_images.survival_image }}" onerror="this.onerror=null;this.src='https://images.unsplash.com/photo-1542751371-adc38448a05e?auto=format&fit=crop&w=1100&q=80'" alt="محیط سروایول ماینکرفت" loading="lazy">
         <div class="mode-card-overlay">
-          <span class="mode-status soon">⏳ به‌زودی منتشر می‌شود</span>
+          <span class="mode-status soon">به‌زودی منتشر می‌شود</span>
           <p class="eyebrow">02 / SURVIVAL</p>
           <h3>SURVIVAL</h3>
           <p>اکتشاف غارهای بی‌پایان، جمع‌آوری منابع کمیاب، ساخت پایگاه‌های مستحکم و نبرد بقا در دنیایی چالش‌برانگیز در کنار دوستانتان.</p>
@@ -210,37 +219,37 @@
 
     <div class="reasons-grid">
       <article class="reason-card">
-        <span class="reason-icon">🏙️</span>
+        <span class="reason-icon">01</span>
         <h3>رول‌پلی شهری و قانون‌مند</h3>
         <p>از مشاغل گوناگون، تجارت، پلیس، کادر درمان و شهروندی واقعی لذت ببر؛ هر تصمیم تو روی داستان شهر اثرگذار است.</p>
       </article>
 
       <article class="reason-card">
-        <span class="reason-icon">🛡️</span>
+        <span class="reason-icon">02</span>
         <h3>امنیت، عدالت و ضدتقلب</h3>
         <p>سیستم‌های امنیتی و نظارتی ۲۴ ساعته کادر استف، محیطی عاری از چیترها و تبعیض برای تمام بازیکنان تضمین می‌کنند.</p>
       </article>
 
       <article class="reason-card">
-        <span class="reason-icon">💰</span>
+        <span class="reason-icon">03</span>
         <h3>اقتصاد بالانس و بازار آزاد</h3>
         <p>کسب درآمد منصفانه، امکان خرید و فروش املاک، خودروها و آیتم‌های ارزشمند در یک ساختار اقتصادی حساب‌شده.</p>
       </article>
 
       <article class="reason-card">
-        <span class="reason-icon">📚</span>
+        <span class="reason-icon">04</span>
         <h3>مرکز آموزش جامع بازیکنان</h3>
         <p>راهنماهای گام‌به‌گام آکادمی به تازه‌واردها کمک می‌کند در کمترین زمان با دستورات، قوانین و مهارت‌های بازی آشنا شوند.</p>
       </article>
 
       <article class="reason-card">
-        <span class="reason-icon">👥</span>
+        <span class="reason-icon">05</span>
         <h3>جامعه فعال و ایونت‌های حماسی</h3>
         <p>برگزاری مسابقات هفتگی، جوایز ویژه و رویدادهای فصلی همراه با پوشش کامل اخبار و قرعه‌کشی‌ها در کانال تلگرام.</p>
       </article>
 
       <article class="reason-card">
-        <span class="reason-icon">🚀</span>
+        <span class="reason-icon">06</span>
         <h3>پایداری و توسعه دائمی</h3>
         <p>سرورهای پرسرعت با پینگ ایده‌آل و به‌روزرسانی‌های مداوم بر اساس بازخورد و پیشنهادات مستقیم جامعه بازیکنان.</p>
       </article>
@@ -273,7 +282,7 @@
         </a>
       {% else %}
         <div class="academy-empty">
-          <span class="feature-symbol">📖</span>
+          <span class="feature-symbol">MC</span>
           <h3>اولین آموزش‌ها در راه است</h3>
           <p>راهنماهای رسمی کادر استف به‌زودی در این بخش به اشتراک گذاشته می‌شوند.</p>
           <a class="button button-outline" href="{{ url_for('academy') }}">مشاهده آکادمی ←</a>
@@ -387,21 +396,21 @@ async function refreshStatus() {
 
     if (data.online === true) {
       pill.classList.add('online');
-      label.textContent = '🟢 سرور آنلاین است';
-      version.textContent = '📌 نسخه: ' + (data.version || '1.20+');
-      players.textContent = '👥 بازیکنان آنلاین: ' + data.players_online + ' / ' + data.players_max;
+      label.textContent = 'سرور آنلاین است';
+      version.textContent = 'نسخه: ' + (data.version || '1.20+');
+      players.textContent = 'بازیکنان آنلاین: ' + data.players_online + ' / ' + data.players_max;
       note.textContent = 'سرور فعال است! آدرس را کپی کنید و هم‌اکنون متصل شوید.';
     } else if (data.online === false) {
       pill.classList.add('offline');
-      label.textContent = '🔴 سرور در حال استراحت';
-      version.textContent = '📌 نسخه: —';
-      players.textContent = '👥 بازیکنان: 0';
+      label.textContent = 'سرور آفلاین / در حال نگهداری';
+      version.textContent = 'نسخه: —';
+      players.textContent = 'بازیکنان: 0';
       note.textContent = 'سرور موقتاً در حال به‌روزرسانی یا آماده‌سازی است.';
     } else {
       pill.classList.add('checking');
-      label.textContent = '🟡 بررسی وضعیت...';
-      version.textContent = '📌 نسخه: —';
-      players.textContent = '👥 بازیکنان: —';
+      label.textContent = 'در حال بررسی وضعیت...';
+      version.textContent = 'نسخه: —';
+      players.textContent = 'بازیکنان: —';
       note.textContent = 'در حال دریافت اطلاعات از مانیتورینگ سرور...';
     }
   } catch(e) {
@@ -417,10 +426,10 @@ document.getElementById('copy-address').addEventListener('click', async () => {
   const button = document.getElementById('copy-address');
   try {
     await navigator.clipboard.writeText('{{ server_address }}');
-    button.textContent = '✅ آدرس کپی شد!';
+    button.textContent = 'آدرس سرور کپی شد';
     button.style.borderColor = 'var(--mc-emerald)';
     setTimeout(() => {
-      button.textContent = '📋 کپی آدرس سرور';
+      button.textContent = 'کپی آدرس سرور';
       button.style.borderColor = '';
     }, 2500);
   } catch(e) {
