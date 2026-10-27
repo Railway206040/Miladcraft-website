@@ -31,6 +31,7 @@ BLOG_PROTOCOLS = ["http", "https", "mailto"]
 def connect_db():
     db = sqlite3.connect(DB_PATH)
     db.row_factory = sqlite3.Row
+    db.execute("PRAGMA foreign_keys=ON")
     return db
 
 def init_db():
@@ -228,10 +229,17 @@ def dashboard():
         warnings = db.execute("SELECT * FROM warnings ORDER BY id DESC LIMIT 50").fetchall()
         staff = db.execute("SELECT id,username,role,created_at FROM staff ORDER BY id").fetchall() if session["role"] in ("owner", "developer") else []
         posts = db.execute("SELECT id,title,published,created_at FROM posts ORDER BY id DESC").fetchall() if "blog_manage" in ROLE_PERMISSIONS.get(session["role"], set()) else []
+        academy_tags = db.execute("SELECT * FROM academy_tags ORDER BY name COLLATE NOCASE").fetchall() if "blog_manage" in ROLE_PERMISSIONS.get(session["role"], set()) else []
+        academy_questions = db.execute("SELECT c.*,m.username,m.display_name,m.avatar_url,p.title AS post_title FROM post_comments c JOIN members m ON m.id=c.member_id JOIN posts p ON p.id=c.post_id ORDER BY CASE WHEN c.reply_text='' THEN 0 ELSE 1 END,c.id DESC LIMIT 100").fetchall() if "blog_manage" in ROLE_PERMISSIONS.get(session["role"], set()) else []
+        project_count = len(projects)
+        warning_count = len(warnings)
+        post_count = len(posts)
     role = session["role"]
     with connect_db() as db:
         site_images = {row["setting_key"]: row["setting_value"] for row in db.execute("SELECT setting_key,setting_value FROM site_settings")}
     return render_template("dashboard.html", projects=projects, warnings=warnings, staff=staff, posts=posts,
+                           academy_tags=academy_tags, academy_questions=academy_questions,
+                           project_count=project_count, warning_count=warning_count, post_count=post_count,
                            site_images=site_images, role_label=ROLES.get(role, role),
                            can_create="projects_create" in ROLE_PERMISSIONS[role],
                            can_warn="warnings_create" in ROLE_PERMISSIONS[role],
