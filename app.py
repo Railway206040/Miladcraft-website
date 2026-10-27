@@ -1,3 +1,4 @@
+from datetime import timedelta
 import os
 import base64
 import sqlite3
@@ -12,7 +13,8 @@ import bleach
 app = Flask(__name__)
 app.secret_key = os.environ.get("SECRET_KEY", "development-only-change-this-before-deploying")
 app.config.update(SESSION_COOKIE_HTTPONLY=True, SESSION_COOKIE_SAMESITE="Lax",
-                  SESSION_COOKIE_SECURE=os.environ.get("COOKIE_SECURE", "true").lower() == "true")
+                  SESSION_COOKIE_SECURE=os.environ.get("COOKIE_SECURE", "true").lower() == "true",
+                  PERMANENT_SESSION_LIFETIME=timedelta(days=120))
 DATA_DIR = Path(os.environ.get("DATA_DIR", "data"))
 DATA_DIR.mkdir(parents=True, exist_ok=True)
 DB_PATH = Path(os.environ.get("DB_PATH", str(DATA_DIR / "miladcraft.db")))
@@ -205,6 +207,7 @@ def login():
             user = db.execute("SELECT * FROM staff WHERE username=?", (username,)).fetchone()
         if user and check_password_hash(user["password_hash"], password):
             session.clear()
+            session.permanent = True
             session.update(staff_id=user["id"], username=user["username"], role=user["role"])
             return redirect(url_for("dashboard"))
         flash("نام کاربری یا رمز عبور اشتباه است.", "error")
@@ -491,6 +494,7 @@ def account_login():
         with connect_db() as db:
             member = db.execute("SELECT * FROM members WHERE username=?", (username,)).fetchone()
         if member and check_password_hash(member["password_hash"], password):
+            session.permanent = True
             session["member_id"] = member["id"]
             session["member_username"] = member["username"]
             next_url = request.args.get("next", "")
