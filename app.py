@@ -96,7 +96,7 @@ def index():
 
 @app.route("/robots.txt")
 def robots_txt():
-    body = "User-agent: *\\nAllow: /\\nDisallow: /staff\\nDisallow: /staff/\\nSitemap: " + request.url_root.rstrip("/") + "/sitemap.xml\\n"
+    body = "User-agent: *\nAllow: /\nDisallow: /staff\nDisallow: /staff/\nSitemap: " + request.url_root.rstrip("/") + "/sitemap.xml\n"
     return app.response_class(body, mimetype="text/plain")
 
 @app.route("/sitemap.xml")
