@@ -512,8 +512,8 @@ def blog_editor():
                                    protocols=BLOG_PROTOCOLS, strip=True)
             published = 1 if request.form.get("published") == "1" else 0
             selected_tag_ids = list({int(value) for value in request.form.getlist("tag_ids") if value.isdigit()})
-            if not title or not bleach.clean(content, tags=[], strip=True).strip():
-                flash("عنوان و محتوای مقاله الزامی است.", "error")
+            if not title or not bleach.clean(content, tags=[], strip=True).strip() or not selected_tag_ids:
+                flash("عنوان، محتوای مقاله و انتخاب حداقل یک تگ الزامی است.", "error")
             elif post_id and post:
                 db.execute("UPDATE posts SET title=?,summary=?,cover_url=?,content=?,published=?,updated_at=CURRENT_TIMESTAMP WHERE id=?",
                            (title, summary, cover_url, content, published, post_id))
