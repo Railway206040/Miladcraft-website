@@ -1,16 +1,18 @@
 # MILAD CRAFT Website
 
-A Persian RTL website for the MILAD CRAFT Minecraft server, with a Flask staff portal.
+A Persian RTL, responsive Flask website for the MILAD CRAFT Minecraft server.
 
 ## Features
-- Public landing page prepared for server information, gallery, and community links.
-- Staff login with Werkzeug password hashing.
-- Role-specific permissions for Builder, H-Builder, Developer, and Owner.
-- Project creation and claiming.
-- Warning records with optional evidence links.
-- Owner/Developer staff-account creation.
+- Blue-and-black public homepage and server connection details.
+- Server online/offline/player count check via the public mcsrvstat.us status API.
+- Telegram community link: https://t.me/Milad_craft (configurable with TELEGRAM_URL).
+- Staff login with hashed passwords and role-based permissions.
+- Builder project claiming; H-Builder project creation and warnings.
+- Developer/Owner full staff controls and rich-text Academy publishing.
+- Academy editor supports bold, italic, underline, headings, ordered/unordered lists, quotes, hyperlinks, and images.
+- Rich text is sanitized on the server using Bleach before publication.
 
-## Run locally
+## Local run
 ```bash
 python -m venv .venv
 # Windows: .venv\\Scripts\\activate
@@ -18,27 +20,26 @@ python -m venv .venv
 pip install -r requirements.txt
 ```
 
-Set `SECRET_KEY`, `BOOTSTRAP_OWNER_USERNAME`, and `BOOTSTRAP_OWNER_PASSWORD` in your environment before first run. The bootstrap owner is created only if that username does not already exist. Do not commit real secrets to GitHub.
+Set these environment variables before running:
+- `SECRET_KEY`: long random secret; required for production.
+- `BOOTSTRAP_OWNER_USERNAME`: initial Owner username.
+- `BOOTSTRAP_OWNER_PASSWORD`: initial Owner password (minimum 10 characters).
+- `TELEGRAM_URL`: optional Telegram channel URL; defaults to https://t.me/Milad_craft.
+- `DATA_DIR`: directory for SQLite data; use a persistent mounted volume in production.
+- `COOKIE_SECURE=true`: keep enabled for HTTPS deployments.
 
-```bash
-python app.py
-```
-
-Open http://127.0.0.1:8080
+Run `python app.py` and open http://127.0.0.1:8080.
 
 ## Railway
-- Deploy this repository with the start command in `Procfile`.
-- Set a strong random `SECRET_KEY`.
-- Set `BOOTSTRAP_OWNER_USERNAME` and a unique `BOOTSTRAP_OWNER_PASSWORD` in Railway Variables.
-- Attach a persistent volume and set `DATA_DIR` to its mount path, so the SQLite database survives redeploys.
-- Keep the repository private and never put real credentials in source files.
+Deploy from this repository using the included Procfile. Configure the environment variables above and attach a persistent volume, setting DATA_DIR to its mount path. Never commit real credentials to GitHub.
 
 ## Initial role matrix
-| Role | View projects | Claim project | Create project | Issue warning | Manage staff |
+| Role | Claim project | Create project | Issue warning | Academy editor | Manage staff |
 | --- | --- | --- | --- | --- | --- |
-| Builder | Yes | Yes | No | No | No |
-| H-Builder | Yes | No | Yes | Yes | No |
+| Builder | Yes | No | No | No | No |
+| H-Builder | No | Yes | Yes | No | No |
 | Developer | Yes | Yes | Yes | Yes | Yes |
 | Owner | Yes | Yes | Yes | Yes | Yes |
 
-The initial implementation is a foundation and should be reviewed and hardened before public production use (including CSRF protection, login rate limiting, and a formal audit trail).
+## Before public production
+Add CSRF protection and login rate limiting, verify the status provider's response in the deployed environment, and confirm Railway persistent storage is configured. The server status is informational and can be temporarily unavailable if the external status API does not respond.
