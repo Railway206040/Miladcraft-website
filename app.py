@@ -249,15 +249,22 @@ def dashboard():
 @app.route("/site-settings/images", methods=["POST"])
 @permission_required("full_access")
 def update_site_images():
-    keys = ["hero_image", "about_image", "roleplay_image", "survival_image",
-            "gallery_image_1", "gallery_image_2", "gallery_image_3"]
+    defaults = {
+        "hero_image": "https://images.unsplash.com/photo-1542751371-adc38448a05e?auto=format&fit=crop&w=1800&q=85",
+        "about_image": "https://images.unsplash.com/photo-1511512578047-dfb367046420?auto=format&fit=crop&w=1000&q=85",
+        "roleplay_image": "https://images.unsplash.com/photo-1493711662062-fa5416f8d4db?auto=format&fit=crop&w=1100&q=85",
+        "survival_image": "https://images.unsplash.com/photo-1580234811497-9df7fd2f357e?auto=format&fit=crop&w=1100&q=85",
+        "gallery_image_1": "https://images.unsplash.com/photo-1511512578047-dfb367046420?auto=format&fit=crop&w=1200&q=85",
+        "gallery_image_2": "https://images.unsplash.com/photo-1542751371-adc38448a05e?auto=format&fit=crop&w=800&q=85",
+        "gallery_image_3": "https://images.unsplash.com/photo-1493711662062-fa5416f8d4db?auto=format&fit=crop&w=800&q=85"
+    }
     values = {}
-    for key in keys:
+    for key, default in defaults.items():
         value = request.form.get(key, "").strip()
         if value and (not value.startswith("https://") or len(value) > 1500):
             flash("آدرس همه تصاویر باید با https:// شروع شود و معتبر باشد.", "error")
             return redirect(url_for("dashboard"))
-        values[key] = value
+        values[key] = value or default
     with connect_db() as db:
         for key, value in values.items():
             db.execute("UPDATE site_settings SET setting_value=? WHERE setting_key=?", (value, key))
@@ -448,7 +455,10 @@ def account_login():
         if member and check_password_hash(member["password_hash"], password):
             session["member_id"] = member["id"]
             session["member_username"] = member["username"]
-            return redirect(request.args.get("next") or url_for("account_profile"))
+            next_url = request.args.get("next", "")
+            if next_url.startswith("/") and not next_url.startswith("//"):
+                return redirect(next_url)
+            return redirect(url_for("account_profile"))
         flash("نام کاربری یا رمز عبور اشتباه است.", "error")
     return render_template("account_login.html")
 
