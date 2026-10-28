@@ -28,11 +28,9 @@
     </nav>
     <div class="header-actions">
       {% if current_account %}
-        {% if current_account['role'] != 'player' %}<a class="button button-quiet button-small" href="{{ url_for('staff_dashboard') }}">فضای کارکنان</a>{% endif %}
         <a class="button button-primary button-small" href="{{ url_for('account_profile') }}">حساب من <span class="button-arrow">←</span></a>
       {% else %}
-        <a class="button button-quiet button-small hide-mobile" href="{{ url_for('account_login') }}">ورود</a>
-        <a class="button button-primary button-small" href="{{ url_for('account_register') }}">شروع بازی <span class="button-arrow">←</span></a>
+        <a class="button button-primary button-small header-auth-button" href="{{ url_for('account_portal') }}">ورود / ثبت نام <span class="button-arrow">←</span></a>
       {% endif %}
     </div>
   </header>

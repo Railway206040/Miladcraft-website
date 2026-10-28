@@ -325,7 +325,7 @@ def staff_required(view):
         account = getattr(g, "account", None)
         if not account:
             flash("ابتدا وارد حساب شوید.", "error")
-            return redirect(url_for("account_login", next=request.path))
+            return redirect(url_for("account_login"))
         if account["role"] == "player":
             flash("این بخش مخصوص کارکنان سرور است.", "error")
             return redirect(url_for("account_profile"))
@@ -468,7 +468,7 @@ def account_login():
                 session.clear()
                 session.permanent = True
                 session["account_id"] = account["id"]
-                target = safe_next(request.args.get("next", ""), url_for("staff_dashboard") if account["role"] != "player" else url_for("account_profile"))
+                target = safe_next(request.args.get("next", ""), url_for("account_profile"))
                 flash("با موفقیت وارد شدید.", "success")
                 return redirect(target)
         flash("نام کاربری یا رمز عبور اشتباه است.", "error")
@@ -514,7 +514,7 @@ def account_profile():
 
 @app.route("/staff/login")
 def staff_login():
-    return redirect(url_for("account_login", next=url_for("staff_dashboard")))
+    return redirect(url_for("account_login"))
 
 @app.route("/staff/logout", methods=["POST"])
 def staff_logout():
@@ -530,6 +530,13 @@ def staff_profile():
 @staff_required
 def staff_dashboard():
     role = g.account["role"]
+    allowed_sections = {"projects", "tasks", "warnings", "activity", "messenger", "staff-accounts", "news-management", "academy-content", "site-settings"}
+    requested_section = request.args.get("section", "").strip()
+    active_section = requested_section if requested_section in allowed_sections else ""
+    if active_section == "staff-accounts" and role not in MASTER_ROLES:
+        abort(403)
+    if active_section in {"news-management", "academy-content", "site-settings", "academy-questions", "academy-tags"} and role not in CONTENT_ROLES:
+        abort(403)
     with connect_db() as db:
         projects = db.execute("""SELECT p.*,COUNT(DISTINCT pm.account_id) AS assigned_count,
             COUNT(DISTINCT t.id) AS task_count,
@@ -570,7 +577,8 @@ def staff_dashboard():
             JOIN accounts a ON a.id=pm.account_id WHERE a.role='builder' ORDER BY a.username""").fetchall()
         joined_project_ids = {r["project_id"] for r in db.execute("SELECT project_id FROM project_members WHERE account_id=?", (g.account["id"],)).fetchall()}
         site_images = {r["setting_key"]:r["setting_value"] for r in db.execute("SELECT setting_key,setting_value FROM site_settings")}
-    return render_template("dashboard.html", projects=projects, my_tasks=my_tasks, warnings=warnings,
+    template_name = "dashboard.html" if active_section else "staff_home.html"
+    return render_template(template_name, active_section=active_section, projects=projects, my_tasks=my_tasks, warnings=warnings,
         recent_warnings=recent_warnings, staff=staff, members=members, activity=activity,
         news_items=news_items, posts=posts, tags=tags, comments=comments,
         conversations=conversation_data, unread_count=unread_count, online_count=online_count, builders=builders, project_builders=project_builders,
@@ -608,13 +616,13 @@ def create_project():
         required = 1
     if not title or not description:
         flash("عنوان و توضیحات پروژه الزامی است.", "error")
-        return redirect(url_for("staff_dashboard") + "#projects")
+        return redirect(url_for("staff_dashboard", section="projects"))
     with connect_db() as db:
         db.execute("INSERT INTO projects(title,description,required_builders,status,created_by) VALUES(?,?,?,'Open',?)",
                    (title,description,required,g.account["username"]))
     log_activity(g.account,"project_created",title)
     flash("پروژه ساخته شد.", "success")
-    return redirect(url_for("staff_dashboard") + "#projects")
+    return redirect(url_for("staff_dashboard", section="projects"))
 
 @app.route("/projects/<int:project_id>/join", methods=["POST"])
 @staff_required
@@ -641,7 +649,7 @@ def join_project(project_id):
                 db.execute("UPDATE projects SET status=? WHERE id=?", ("Full" if count >= project["required_builders"] else "In progress",project_id))
                 flash("به پروژه پیوستید.", "success")
     log_activity(g.account,"project_joined",project["title"])
-    return redirect(url_for("staff_dashboard") + "#projects")
+    return redirect(url_for("staff_dashboard", section="projects"))
 
 @app.route("/projects/<int:project_id>/tasks/create", methods=["POST"])
 @staff_required
@@ -658,14 +666,14 @@ def create_task(project_id):
             abort(404)
         if assignee_id and not db.execute("SELECT id FROM project_members WHERE project_id=? AND account_id=?", (project_id,assignee_id)).fetchone():
             flash("مسئول تسک باید عضو همین پروژه باشد.", "error")
-            return redirect(url_for("staff_dashboard")+"#tasks")
+            return redirect(url_for("staff_dashboard", section="tasks"))
         if title:
             db.execute("INSERT INTO tasks(project_id,title,description,assigned_to,created_by) VALUES(?,?,?,?,?)",
                        (project_id,title,description,assignee_id,g.account["id"]))
             flash("تسک ساخته شد.", "success")
         else:
             flash("عنوان تسک الزامی است.", "error")
-    return redirect(url_for("staff_dashboard")+"#tasks")
+    return redirect(url_for("staff_dashboard", section="tasks"))
 
 @app.route("/tasks/<int:task_id>/status", methods=["POST"])
 @staff_required
@@ -683,7 +691,7 @@ def update_task_status(task_id):
         db.execute("UPDATE tasks SET status=?,updated_at=CURRENT_TIMESTAMP WHERE id=?", (status,task_id))
     log_activity(g.account,"task_status",f"#{task_id}: {status}")
     flash("وضعیت تسک به‌روزرسانی شد.", "success")
-    return redirect(url_for("staff_dashboard")+"#tasks")
+    return redirect(url_for("staff_dashboard", section="tasks"))
 
 @app.route("/warnings/create", methods=["POST"])
 @staff_required
@@ -700,11 +708,11 @@ def create_warning():
         raw = upload.read(8_000_001)
         if mime not in {"image/png","image/jpeg","image/webp","image/gif","video/mp4","video/webm"} or not raw or len(raw)>8_000_000:
             flash("مدرک باید تصویر یا ویدئوی MP4/WEBM و حداکثر ۸ مگابایت باشد.", "error")
-            return redirect(url_for("staff_dashboard")+"#warnings")
+            return redirect(url_for("staff_dashboard", section="warnings"))
         evidence_data = "data:"+mime+";base64,"+base64.b64encode(raw).decode("ascii")
     elif evidence_url and (not evidence_url.startswith("https://") or len(evidence_url)>1500):
         flash("لینک مدرک باید با HTTPS شروع شود.", "error")
-        return redirect(url_for("staff_dashboard")+"#warnings")
+        return redirect(url_for("staff_dashboard", section="warnings"))
     with connect_db() as db:
         target_account = db.execute("SELECT * FROM accounts WHERE username=? COLLATE NOCASE AND role<>'player'",(target,)).fetchone()
         if not target_account:
@@ -720,7 +728,7 @@ def create_warning():
                        (target_account["id"],"اخطار جدید",reason[:500],url_for("account_profile")+"#warnings"))
             flash("اخطار ثبت شد.", "success")
     log_activity(g.account,"warning_created",target)
-    return redirect(url_for("staff_dashboard")+"#warnings")
+    return redirect(url_for("staff_dashboard", section="warnings"))
 
 @app.route("/staff/promote-member", methods=["POST"])
 @roles_required("developer","owner")
@@ -729,7 +737,7 @@ def promote_member():
     role = request.form.get("role","")
     if role not in STAFF_ROLES:
         flash("نقش انتخاب‌شده معتبر نیست.", "error")
-        return redirect(url_for("staff_dashboard")+"#staff-accounts")
+        return redirect(url_for("staff_dashboard", section="staff-accounts"))
     with connect_db() as db:
         target = db.execute("SELECT * FROM accounts WHERE username=? COLLATE NOCASE", (username,)).fetchone()
         if not target:
@@ -744,7 +752,7 @@ def promote_member():
             db.execute("INSERT INTO notifications(recipient_type,recipient_id,title,body,target_url) VALUES('account',?,?,?,?)",
                        (target["id"],"دسترسی کارکنان فعال شد","نقش جدید شما: "+ROLE_LABELS[role],url_for("staff_dashboard")))
             flash(f"دسترسی {ROLE_LABELS[role]} برای {target['username']} فعال شد.", "success")
-    return redirect(url_for("staff_dashboard")+"#staff-accounts")
+    return redirect(url_for("staff_dashboard", section="staff-accounts"))
 
 @app.route("/staff/role/<int:account_id>", methods=["POST"])
 @roles_required("developer","owner")
@@ -760,7 +768,7 @@ def change_staff_role(account_id):
             abort(403)
         db.execute("UPDATE accounts SET role=? WHERE id=?", (role,account_id))
     flash("نقش کارکنان به‌روزرسانی شد.", "success")
-    return redirect(url_for("staff_dashboard")+"#staff-accounts")
+    return redirect(url_for("staff_dashboard", section="staff-accounts"))
 
 @app.route("/site-settings/images", methods=["POST"])
 @roles_required("developer","owner")
@@ -770,13 +778,13 @@ def update_site_images():
         value = request.form.get(key,"").strip()
         if value and (not value.startswith("https://") or len(value)>1500):
             flash("آدرس تصاویر باید HTTPS باشد.", "error")
-            return redirect(url_for("staff_dashboard")+"#site-settings")
+            return redirect(url_for("staff_dashboard", section="site-settings"))
         values[key] = value or default
     with connect_db() as db:
         for key,value in values.items():
             db.execute("UPDATE site_settings SET setting_value=? WHERE setting_key=?", (value,key))
     flash("تصاویر سایت ذخیره شدند.", "success")
-    return redirect(url_for("staff_dashboard")+"#site-settings")
+    return redirect(url_for("staff_dashboard", section="site-settings"))
 
 @app.route("/messages/private", methods=["POST"])
 @staff_required
@@ -785,12 +793,12 @@ def start_private_message():
     body = clean_text(request.form.get("body",""),4000)
     if not recipient or not body:
         flash("گیرنده و متن پیام الزامی است.", "error")
-        return redirect(url_for("staff_dashboard")+"#messenger")
+        return redirect(url_for("staff_dashboard", section="messenger"))
     with connect_db() as db:
         target = db.execute("SELECT id,username FROM accounts WHERE username=? COLLATE NOCASE AND role<>'player'", (recipient,)).fetchone()
         if not target or target["id"] == g.account["id"]:
             flash("گیرنده معتبر نیست.", "error")
-            return redirect(url_for("staff_dashboard")+"#messenger")
+            return redirect(url_for("staff_dashboard", section="messenger"))
         convo = db.execute("""SELECT c.id FROM conversations c
             JOIN conversation_members a ON a.conversation_id=c.id AND a.account_id=?
             JOIN conversation_members b ON b.conversation_id=c.id AND b.account_id=?
@@ -804,7 +812,7 @@ def start_private_message():
             db.execute("INSERT INTO conversation_members(conversation_id,account_id) VALUES(?,?)", (convo_id,target["id"]))
         db.execute("INSERT INTO messages(conversation_id,sender_id,body) VALUES(?,?,?)", (convo_id,g.account["id"],body))
     flash("پیام ارسال شد.", "success")
-    return redirect(url_for("staff_dashboard")+"#messenger")
+    return redirect(url_for("staff_dashboard", section="messenger"))
 
 @app.route("/messages/<int:conversation_id>/send", methods=["POST"])
 @staff_required
@@ -819,7 +827,7 @@ def send_message(conversation_id):
         else:
             db.execute("INSERT INTO messages(conversation_id,sender_id,body) VALUES(?,?,?)", (conversation_id,g.account["id"],body))
             flash("پیام ارسال شد.", "success")
-    return redirect(url_for("staff_dashboard")+"#messenger")
+    return redirect(url_for("staff_dashboard", section="messenger"))
 
 @app.route("/api/minecraft-event", methods=["POST"])
 def minecraft_event():
@@ -890,7 +898,7 @@ def create_news():
             db.execute("INSERT INTO news(title,summary,content,cover_url,author,published) VALUES(?,?,?,?,?,?)",
                        (title,summary,content,cover,g.account["username"],published))
         flash("خبر ذخیره شد.", "success")
-    return redirect(url_for("staff_dashboard")+"#news-management")
+    return redirect(url_for("staff_dashboard", section="news-management"))
 
 @app.route("/academy")
 def academy():
@@ -977,7 +985,7 @@ def reply_to_comment(comment_id):
             db.execute("INSERT INTO notifications(recipient_type,recipient_id,title,body,target_url) VALUES('account',?,?,?,?)",
                        (comment["account_id"],"پاسخ جدید به دیدگاه",reply[:500],url_for("blog_post",post_id=comment["post_id"])+"#questions"))
         flash("پاسخ ثبت شد.", "success")
-    return redirect(url_for("staff_dashboard")+"#academy-questions")
+    return redirect(url_for("staff_dashboard", section="academy-content"))
 
 @app.route("/academy/tags/create", methods=["POST"])
 @staff_required
@@ -995,7 +1003,7 @@ def create_academy_tag():
             flash("برچسب ساخته شد.", "success")
         except sqlite3.IntegrityError:
             flash("این برچسب از قبل وجود دارد.", "error")
-    return redirect(url_for("staff_dashboard")+"#academy-tags")
+    return redirect(url_for("staff_dashboard", section="academy-content"))
 
 @app.route("/academy/editor", methods=["GET","POST"])
 @staff_required
@@ -1028,14 +1036,14 @@ def blog_editor():
                 for tag_id in selected_tag_ids:
                     db.execute("INSERT OR IGNORE INTO post_tags(post_id,tag_id) SELECT ?,id FROM academy_tags WHERE id=?", (post_id,tag_id))
                 flash("مطلب به‌روزرسانی شد.", "success")
-                return redirect(url_for("staff_dashboard")+"#academy-content")
+                return redirect(url_for("staff_dashboard", section="academy-content"))
             else:
                 new_id = db.execute("INSERT INTO posts(title,summary,content,cover_url,author,published) VALUES(?,?,?,?,?,?)",
                     (title,summary,content,cover,g.account["username"],published)).lastrowid
                 for tag_id in selected_tag_ids:
                     db.execute("INSERT OR IGNORE INTO post_tags(post_id,tag_id) SELECT ?,id FROM academy_tags WHERE id=?", (new_id,tag_id))
                 flash("مطلب ساخته شد.", "success")
-                return redirect(url_for("staff_dashboard")+"#academy-content")
+                return redirect(url_for("staff_dashboard", section="academy-content"))
     return render_template("editor.html",post=post,tags=tags,selected_tag_ids=selected_tag_ids)
 
 @app.route("/academy/<int:post_id>/delete", methods=["POST"])
@@ -1046,7 +1054,7 @@ def delete_post(post_id):
     with connect_db() as db:
         db.execute("DELETE FROM posts WHERE id=?", (post_id,))
     flash("مطلب حذف شد.", "success")
-    return redirect(url_for("staff_dashboard")+"#academy-content")
+    return redirect(url_for("staff_dashboard", section="academy-content"))
 
 @app.route("/notifications/<int:notification_id>/read", methods=["POST"])
 @account_required

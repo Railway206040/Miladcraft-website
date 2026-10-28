@@ -1,7 +1,8 @@
 {% extends "base.html" %}
 {% block title %}پنل کارکنان | MILAD CRAFT{% endblock %}
 {% block content %}
-<section class="dashboard-page staff-workspace">
+<section class="dashboard-page staff-workspace{% if active_section %} staff-section-page staff-section-{{ active_section }}{% endif %}">
+  {% if active_section %}<div class="staff-section-topbar"><a class="button button-quiet" href="{{ url_for('staff_dashboard') }}">← بازگشت به داشبورد کارکنان</a><a class="button button-quiet" href="{{ url_for('account_profile') }}">پروفایل من</a></div>{% endif %}
   <div class="dashboard-welcome"><div><span class="eyebrow">MILAD CRAFT · STAFF WORKSPACE</span><h1>سلام، <span>{{ current_account['display_name'] or current_account['username'] }}</span></h1><p>میز کار تو برای مدیریت پروژه‌ها، فعالیت‌ها و جامعه سرور.</p></div><div class="welcome-actions"><span class="role-pill" style="--role-color:{{ role_colors[current_account['role']] }}">{{ role_label }}</span><a class="button button-quiet" href="{{ url_for('account_profile') }}">پروفایل من</a></div></div>
   <div class="workspace-stats"><article class="stat-card"><span class="stat-icon">P</span><div><small>پروژه‌های فعال</small><b>{{ projects|selectattr('status','ne','Completed')|list|length }}</b></div></article><article class="stat-card"><span class="stat-icon stat-icon-purple">T</span><div><small>تسک‌های من</small><b>{{ my_tasks|length }}</b></div></article><article class="stat-card"><span class="stat-icon stat-icon-orange">W</span><div><small>اخطارهای من</small><b>{{ warnings|length }}</b></div></article><article class="stat-card"><span class="stat-icon stat-icon-green">●</span><div><small>کارکنان آنلاین در Minecraft</small><b>{{ online_count }}</b></div></article></div>
   <div class="workspace-layout">
