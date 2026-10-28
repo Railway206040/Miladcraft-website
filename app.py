@@ -468,7 +468,7 @@ def account_login():
                 session.clear()
                 session.permanent = True
                 session["account_id"] = account["id"]
-                target = safe_next(request.args.get("next", ""), url_for("staff_dashboard") if account["role"] != "player" else url_for("account_profile"))
+                target = safe_next(request.args.get("next", ""), url_for("account_profile"))
                 flash("با موفقیت وارد شدید.", "success")
                 return redirect(target)
         flash("نام کاربری یا رمز عبور اشتباه است.", "error")
@@ -514,7 +514,7 @@ def account_profile():
 
 @app.route("/staff/login")
 def staff_login():
-    return redirect(url_for("account_login", next=url_for("staff_dashboard")))
+    return redirect(url_for("account_login"))
 
 @app.route("/staff/logout", methods=["POST"])
 def staff_logout():
@@ -530,7 +530,7 @@ def staff_profile():
 @staff_required
 def staff_dashboard():
     role = g.account["role"]
-    allowed_sections = {"projects", "tasks", "warnings", "activity", "messenger", "staff-accounts", "news-management", "academy-content", "site-settings", "academy-questions", "academy-tags"}
+    allowed_sections = {"projects", "tasks", "warnings", "activity", "messenger", "staff-accounts", "news-management", "academy-content", "site-settings"}
     requested_section = request.args.get("section", "").strip()
     active_section = requested_section if requested_section in allowed_sections else ""
     if active_section == "staff-accounts" and role not in MASTER_ROLES:
@@ -985,7 +985,7 @@ def reply_to_comment(comment_id):
             db.execute("INSERT INTO notifications(recipient_type,recipient_id,title,body,target_url) VALUES('account',?,?,?,?)",
                        (comment["account_id"],"پاسخ جدید به دیدگاه",reply[:500],url_for("blog_post",post_id=comment["post_id"])+"#questions"))
         flash("پاسخ ثبت شد.", "success")
-    return redirect(url_for("staff_dashboard", section="academy-questions"))
+    return redirect(url_for("staff_dashboard", section="academy-content"))
 
 @app.route("/academy/tags/create", methods=["POST"])
 @staff_required
@@ -1003,7 +1003,7 @@ def create_academy_tag():
             flash("برچسب ساخته شد.", "success")
         except sqlite3.IntegrityError:
             flash("این برچسب از قبل وجود دارد.", "error")
-    return redirect(url_for("staff_dashboard", section="academy-tags"))
+    return redirect(url_for("staff_dashboard", section="academy-content"))
 
 @app.route("/academy/editor", methods=["GET","POST"])
 @staff_required
