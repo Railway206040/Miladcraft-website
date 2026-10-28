@@ -9,7 +9,7 @@ from .db import connect_db, ensure_schema
 
 portal = Blueprint("staff_portal", __name__, url_prefix="/workspace")
 MASTER = {"owner", "developer"}
-BUILD_MANAGERS = MASTER | {"hbuilder"}
+BUILD_MANAGERS = MASTER | {"hbuilder", "manager"}
 ROLES = {"owner":"Owner","developer":"Developer","manager":"Manager","admin":"Admin","hbuilder":"H-Builder","moderator":"Moderator","helper":"Helper","builder":"Builder"}
 REQUEST_ROLES = {"builder", "hbuilder", "helper", "moderator"}
 
@@ -130,11 +130,68 @@ def review_application(application_id):
     return redirect(url_for("staff_portal.applications"))
 
 
+@portal.route("/projects/create", methods=["POST"])
+@role_required(*BUILD_MANAGERS)
+def create_project():
+    title=request.form.get("title","").strip()
+    description=request.form.get("description","").strip()
+    try:
+        required=max(1,min(50,int(request.form.get("required_builders","1"))))
+    except ValueError:
+        required=1
+    if not title or not description:
+        flash("عنوان و توضیحات پروژه الزامی است.","error")
+        return redirect(url_for("staff_portal.projects"))
+    with connect_db() as db:
+        db.execute("INSERT INTO projects(title,description,required_builders,status,created_by) VALUES(?,?,?,'Open',?)",
+            (title[:160],description[:5000],required,session["username"]))
+        db.execute("INSERT INTO staff_activity(staff_id,username,event_type,details) VALUES(?,?,?,?)",
+            (session["staff_id"],session["username"],"project_created",title[:300]))
+    flash("پروژه با موفقیت ایجاد شد.","success")
+    return redirect(url_for("staff_portal.projects"))
+
+
+@portal.route("/projects/<int:project_id>/join", methods=["POST"])
+@login_required
+def join_project(project_id):
+    role=session.get("role","").lower()
+    if role!="builder" and role not in MASTER:
+        abort(403)
+    with connect_db() as db:
+        project=db.execute("SELECT * FROM projects WHERE id=?",(project_id,)).fetchone()
+        if not project: abort(404)
+        if project["status"] in {"Completed","Closed","Cancelled","Full"}:
+            flash("این پروژه دیگر ظرفیت پذیرش ندارد.","error")
+            return redirect(url_for("staff_portal.projects"))
+        current=db.execute("SELECT COUNT(*) FROM project_members WHERE project_id=?",(project_id,)).fetchone()[0]
+        existing=db.execute("SELECT 1 FROM project_members WHERE project_id=? AND staff_id=?",(project_id,session["staff_id"])).fetchone()
+        if existing:
+            flash("شما قبلاً به این پروژه پیوسته‌اید.","error")
+        elif current>=project["required_builders"]:
+            db.execute("UPDATE projects SET status='Full' WHERE id=?",(project_id,))
+            flash("ظرفیت پروژه تکمیل شده است.","error")
+        else:
+            db.execute("INSERT INTO project_members(project_id,staff_id) VALUES(?,?)",(project_id,session["staff_id"]))
+            current+=1
+            status="Full" if current>=project["required_builders"] else "In progress"
+            db.execute("UPDATE projects SET status=?,claimed_by=COALESCE(claimed_by,?) WHERE id=?",(status,session["username"],project_id))
+            db.execute("INSERT INTO staff_activity(staff_id,username,event_type,details) VALUES(?,?,?,?)",
+                (session["staff_id"],session["username"],"project_joined",project["title"][:300]))
+            flash("به پروژه پیوستید.","success")
+    return redirect(url_for("staff_portal.projects"))
+
+
 @portal.route("/projects")
 @login_required
 def projects():
     with connect_db() as db:
-        projects=db.execute("SELECT p.*,COUNT(t.id) task_count,SUM(CASE WHEN t.status='done' THEN 1 ELSE 0 END) completed_tasks FROM projects p LEFT JOIN build_tasks t ON t.project_id=p.id GROUP BY p.id ORDER BY p.id DESC").fetchall()
+        projects=db.execute("""SELECT p.*,
+            COUNT(DISTINCT t.id) task_count,
+            COUNT(DISTINCT CASE WHEN t.status='done' THEN t.id END) completed_tasks,
+            COUNT(DISTINCT pm.staff_id) assigned_count
+            FROM projects p LEFT JOIN build_tasks t ON t.project_id=p.id
+            LEFT JOIN project_members pm ON pm.project_id=p.id
+            GROUP BY p.id ORDER BY p.id DESC""").fetchall()
         staff=db.execute("SELECT username,role FROM staff ORDER BY username").fetchall()
     return render_template("workspace.html",page="projects",projects=projects,staff=staff,role=session.get("role","").lower(),role_label=ROLES.get(session.get("role","").lower(),""))
 
