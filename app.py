@@ -621,7 +621,7 @@ def update_staff_profile():
 def promote_member():
     username = request.form.get("username", "").strip()
     role = request.form.get("role", "")
-    if role not in ("builder", "hbuilder", "developer", "owner"):
+    if role not in ROLES:
         flash("نقش انتخاب‌شده معتبر نیست.", "error")
         return redirect(url_for("dashboard") + "#staff-accounts")
     with connect_db() as db:
@@ -632,6 +632,10 @@ def promote_member():
         else:
             db.execute("INSERT INTO staff(username,password_hash,role,display_name,avatar_url) VALUES(?,?,?,?,?)",
                        (member["username"], member["password_hash"], role, member["display_name"], member["avatar_url"]))
+            promoted = db.execute("SELECT id FROM staff WHERE username=?", (member["username"],)).fetchone()
+            group = db.execute("SELECT id FROM staff_conversations WHERE kind='group' AND title='همه کارکنان' LIMIT 1").fetchone()
+            if promoted and group:
+                db.execute("INSERT OR IGNORE INTO staff_conversation_members(conversation_id,staff_id) VALUES(?,?)", (group["id"], promoted["id"]))
             flash("دسترسی استف فعال شد؛ کاربر با همان نام کاربری و رمز وارد می‌شود.", "success")
     return redirect(url_for("dashboard") + "#staff-accounts")
 
