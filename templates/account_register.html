@@ -1,5 +1,48 @@
 {% extends "base.html" %}
 {% block title %}ساخت حساب | MILAD CRAFT{% endblock %}
 {% block content %}
-<section class="auth-wrap"><a class="back-link" href="{{ url_for('account_portal') }}">← بازگشت به حساب‌ها</a><div class="auth-card auth-card-wide"><div class="auth-brand"><img src="{{ site_images.get('site_logo') or url_for('static',filename='logo.svg') }}" alt=""><span class="eyebrow">JOIN THE WORLD / 01</span></div><h1>حساب خودت را بساز.</h1><p class="auth-subtitle">یک حساب برای بازی، پروفایل و همه فعالیت‌های آینده‌ات.</p><form method="post" class="form-stack">{{ csrf_field() }}<div class="form-grid"><label>نام کاربری<input name="username" autocomplete="username" required minlength="3" maxlength="30" pattern="[A-Za-z0-9_]{3,30}" value="{{ request.form.get('username','') }}" placeholder="مثلاً Player_01"><small>۳ تا ۳۰ نویسه؛ حروف انگلیسی، عدد و زیرخط.</small></label><label>نام نمایشی<input name="display_name" maxlength="80" value="{{ request.form.get('display_name','') }}" placeholder="نامی که دیگران می‌بینند"></label><label>نام کاربری Minecraft <span class="optional-label">اختیاری</span><input name="minecraft_username" maxlength="32" value="{{ request.form.get('minecraft_username','') }}" placeholder="نام داخل بازی"></label><label>رمز عبور<input name="password" type="password" autocomplete="new-password" required minlength="10" placeholder="حداقل ۱۰ نویسه"><small>از رمز عبور یکتا استفاده کن.</small></label><label>تکرار رمز عبور<input name="confirm_password" type="password" autocomplete="new-password" required minlength="10" placeholder="تکرار رمز عبور"></label></div><button class="button button-primary button-full button-large" type="submit">ساخت حساب <span class="button-arrow">←</span></button></form><div class="auth-bottom">قبلاً ثبت‌نام کرده‌ای؟ <a href="{{ url_for('account_login') }}">وارد شو</a></div></div></section>
+<section class="register-experience">
+  <a class="back-link register-back" href="{{ url_for('account_portal') }}">← بازگشت به حساب‌ها</a>
+  <div class="register-grid">
+    <aside class="register-showcase">
+      <img class="register-world-image" src="https://www.minecraft.net/content/dam/games/minecraft/key-art/MCV_The_Bogged_1920x1080.jpg" alt="دنیای Minecraft" onerror="this.onerror=null;this.src='https://images.unsplash.com/photo-1607513746994-51f730a44832?auto=format&fit=crop&w=1400&q=85';">
+      <div class="register-showcase-shade"></div>
+      <div class="register-showcase-top"><span class="register-mark">MC</span><span class="register-status"><i></i> YOUR ADVENTURE STARTS HERE</span></div>
+      <div class="register-showcase-copy"><span class="eyebrow">MILAD CRAFT · ROLEPLAY</span><h2>دنیای تو.<br><span>داستان تو.</span></h2><p>حساب خودت را بساز و وارد جامعه MILAD CRAFT شو.</p><div class="register-world-stats"><span><b>1.21.11</b><small>نسخه پیشنهادی</small></span><span><b>ROLE PLAY</b><small>حالت اصلی سرور</small></span></div></div>
+      <div class="register-floating-chip"><span class="register-chip-dot"></span><div><b>یک حساب، همه‌جا</b><small>پروفایل · اخبار · جامعه</small></div></div>
+    </aside>
+    <div class="register-form-side">
+      <div class="register-form-card">
+        <div class="register-card-brand"><img src="{{ site_images.get('site_logo') or url_for('static',filename='logo.svg') }}" alt=""><div><span class="eyebrow">CREATE ACCOUNT / 01</span><small>به جهان MILAD CRAFT خوش آمدی</small></div></div>
+        <h1>ماجراجویی از اینجا شروع می‌شود.</h1><p class="register-lead">حساب بازیکن بساز؛ هر زمان لازم باشد، همین حساب برای پروفایل و امکانات دیگر استفاده می‌شود.</p>
+        <form method="post" class="register-form" id="register-form" novalidate>
+          {{ csrf_field() }}
+          <label class="register-field"><span>نام کاربری <b>*</b></span><input name="username" id="register-username" autocomplete="username" required minlength="3" maxlength="30" pattern="[A-Za-z0-9_]{3,30}" value="{{ request.form.get('username','') }}" placeholder="مثلاً Player_01"><small>۳ تا ۳۰ نویسه؛ حروف انگلیسی، عدد و زیرخط.</small><em class="field-feedback" aria-live="polite"></em></label>
+          <label class="register-field"><span>نام نمایشی <small>اختیاری</small></span><input name="display_name" maxlength="80" value="{{ request.form.get('display_name','') }}" placeholder="نامی که دیگران می‌بینند"></label>
+          <label class="register-field"><span>نام کاربری Minecraft <small>اختیاری</small></span><input name="minecraft_username" maxlength="32" value="{{ request.form.get('minecraft_username','') }}" placeholder="نام داخل بازی"></label>
+          <div class="register-password-grid">
+            <label class="register-field"><span>رمز عبور <b>*</b></span><div class="password-input-wrap"><input name="password" id="register-password" type="password" autocomplete="new-password" required minlength="10" placeholder="حداقل ۱۰ نویسه"><button type="button" class="password-toggle" data-password-toggle="register-password" aria-label="نمایش رمز عبور">نمایش</button></div><small>حداقل ۱۰ نویسه؛ رمز یکتا انتخاب کن.</small><div class="password-strength" aria-hidden="true"><span></span><span></span><span></span><span></span></div></label>
+            <label class="register-field"><span>تکرار رمز <b>*</b></span><input name="confirm_password" id="register-confirm" type="password" autocomplete="new-password" required minlength="10" placeholder="تکرار رمز عبور"><em class="field-feedback" id="password-match" aria-live="polite"></em></label>
+          </div>
+          <button class="button button-primary button-full button-large register-submit" type="submit"><span>ساخت حساب بازیکن</span><span class="button-arrow">←</span></button>
+          <p class="register-trust"><span>●</span> ثبت‌نام به‌تنهایی دسترسی کارکنان ایجاد نمی‌کند.</p>
+        </form>
+        <div class="auth-bottom">قبلاً ثبت‌نام کرده‌ای؟ <a href="{{ url_for('account_login') }}">وارد شو</a></div>
+      </div>
+    </div>
+  </div>
+</section>
+{% endblock %}
+{% block scripts %}
+<script>
+(function(){
+ const form=document.getElementById('register-form'),username=document.getElementById('register-username'),password=document.getElementById('register-password'),confirm=document.getElementById('register-confirm'),match=document.getElementById('password-match'),bars=document.querySelectorAll('.password-strength span');
+ document.querySelectorAll('[data-password-toggle]').forEach(button=>button.addEventListener('click',()=>{const input=document.getElementById(button.dataset.passwordToggle);input.type=input.type==='password'?'text':'password';button.textContent=input.type==='password'?'نمایش':'پنهان';button.setAttribute('aria-label',input.type==='password'?'نمایش رمز عبور':'پنهان کردن رمز عبور')}));
+ function strength(){if(!password)return;const value=password.value;let score=0;if(value.length>=10)score++;if(/[A-Z]/.test(value)&&/[a-z]/.test(value))score++;if(/[0-9]/.test(value))score++;if(/[^A-Za-z0-9]/.test(value))score++;bars.forEach((bar,i)=>bar.classList.toggle('filled',i<score));}
+ function matchPassword(){if(!confirm.value){match.textContent='';return}const ok=password.value===confirm.value;match.textContent=ok?'رمزها یکسان هستند':'رمزها یکسان نیستند';match.className='field-feedback '+(ok?'is-valid':'is-invalid')}
+ if(password)password.addEventListener('input',strength);if(confirm)confirm.addEventListener('input',matchPassword);
+ if(username)username.addEventListener('input',()=>{const valid=/^[A-Za-z0-9_]{3,30}$/.test(username.value);username.classList.toggle('input-invalid',username.value.length>0&&!valid);const feedback=username.parentElement.querySelector('.field-feedback');if(feedback)feedback.textContent=username.value.length&&!valid?'از ۳ تا ۳۰ حرف انگلیسی، عدد یا زیرخط استفاده کن.':''});
+ if(form)form.addEventListener('submit',event=>{if(!form.checkValidity()||password.value!==confirm.value){event.preventDefault();form.reportValidity();matchPassword()}});
+})();
+</script>
 {% endblock %}

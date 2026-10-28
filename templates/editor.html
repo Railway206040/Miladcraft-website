@@ -1,3 +1,57 @@
 {% extends "base.html" %}
 {% block title %}ویرایشگر مرکز آموزش | MILAD CRAFT{% endblock %}
-{% block content %}<section class="editor-page"><a class="back-link" href="{{ url_for('staff_dashboard') }}#academy-content">← بازگشت به پنل کارکنان</a><div class="page-intro"><span class="eyebrow">ACADEMY CMS / EDITOR</span><h1>{{ 'ویرایش مطلب' if post else 'ساخت مطلب جدید' }}</h1><p>محتوا را بنویس، برچسب بزن و قبل از انتشار بازبینی کن.</p></div><form method="post" class="panel editor-form">{{ csrf_field() }}<label>عنوان مطلب<input name="title" required maxlength="180" value="{{ post['title'] if post else '' }}" placeholder="عنوان روشن و مشخص"></label><label>خلاصه<textarea name="summary" rows="2" maxlength="500" placeholder="خلاصه کوتاه برای کارت مطلب">{{ post['summary'] if post else '' }}</textarea></label><label>لینک تصویر کاور<input type="url" name="cover_url" value="{{ post['cover_url'] if post else '' }}" placeholder="https://..."></label><label>محتوا<textarea name="content" rows="16" required placeholder="محتوای مقاله...">{{ post['content'] if post else '' }}</textarea><small>HTML مجاز مانند p، h2، strong، ul و a پاک‌سازی می‌شود.</small></label><div class="tag-select"><b>برچسب‌ها</b>{% for tag in tags %}<label class="checkbox-label"><input type="checkbox" name="tag_ids" value="{{ tag['id'] }}" {% if tag['id'] in selected_tag_ids %}checked{% endif %}>{{ tag['name'] }}</label>{% else %}<small>از داشبورد ابتدا برچسب بساز.</small>{% endfor %}</div><label class="checkbox-label"><input type="checkbox" name="published" value="1" {% if not post or post['published'] %}checked{% endif %}> انتشار مطلب</label><button class="button button-primary" type="submit">ذخیره مطلب <span>←</span></button></form></section>{% endblock %}
+{% block content %}
+<section class="editor-page blog-studio">
+  <a class="back-link" href="{{ url_for('staff_dashboard') }}#academy-content">← بازگشت به پنل کارکنان</a>
+  <div class="blog-studio-header"><div><span class="eyebrow">MILAD CRAFT / PUBLISHING STUDIO</span><h1>{{ 'ویرایش مطلب' if post else 'استودیوی نوشتن مقاله' }}</h1><p>یک مطلب کامل با تصویر، تیتر، قالب‌بندی و پیش‌نمایش آماده کن.</p></div><div class="blog-studio-badge"><span></span> ویرایشگر محتوا</div></div>
+  <form method="post" class="blog-studio-grid" id="blog-editor-form">
+    {{ csrf_field() }}
+    <div class="blog-editor-main">
+      <section class="panel blog-meta-panel"><div class="blog-section-title"><span class="blog-step">01</span><div><h2>مشخصات مطلب</h2><p>عنوان و خلاصه‌ای که در کارت‌های سایت نمایش داده می‌شود.</p></div></div>
+        <label class="blog-field">عنوان مطلب<input name="title" id="blog-title" required maxlength="180" value="{{ post['title'] if post else '' }}" placeholder="عنوان جذاب و روشن بنویس..."></label>
+        <label class="blog-field">خلاصه<textarea name="summary" id="blog-summary" rows="2" maxlength="500" placeholder="در چند جمله توضیح بده این مطلب درباره چیست...">{{ post['summary'] if post else '' }}</textarea></label>
+        <label class="blog-field">تصویر کاور (HTTPS)<input type="url" name="cover_url" id="blog-cover" value="{{ post['cover_url'] if post else '' }}" placeholder="https://..."></label>
+        <div class="blog-cover-preview" id="blog-cover-preview"><div class="cover-preview-placeholder"><span>MC</span><b>پیش‌نمایش تصویر کاور</b><small>با وارد کردن لینک تصویر، اینجا نمایش داده می‌شود.</small></div></div>
+      </section>
+      <section class="panel blog-writing-panel"><div class="blog-section-title"><span class="blog-step">02</span><div><h2>محتوای مقاله</h2><p>از ابزارها برای ساختاردهی متن استفاده کن.</p></div></div>
+        <div class="blog-toolbar" role="toolbar" aria-label="ابزارهای قالب‌بندی متن">
+          <button type="button" data-insert="heading" title="تیتر بخش">H2</button><button type="button" data-insert="subheading" title="زیرتیتر">H3</button><span></span>
+          <button type="button" data-insert="bold" title="متن پررنگ"><b>B</b></button><button type="button" data-insert="italic" title="متن مورب"><i>I</i></button><button type="button" data-insert="quote" title="نقل‌قول">❞</button><span></span>
+          <button type="button" data-insert="ul" title="فهرست نقطه‌ای">• فهرست</button><button type="button" data-insert="ol" title="فهرست شماره‌دار">۱. فهرست</button><button type="button" data-insert="link" title="افزودن لینک">لینک</button><button type="button" data-insert="image" title="افزودن تصویر">تصویر</button><button type="button" data-insert="hr" title="خط جداکننده">خط</button>
+        </div>
+        <textarea name="content" id="blog-content" rows="22" required placeholder="مقاله را اینجا بنویس...&#10;&#10;برای تیترها و فهرست‌ها از نوار ابزار بالا کمک بگیر.">{{ post['content'] if post else '' }}</textarea>
+        <div class="blog-editor-foot"><small>HTML مجاز شامل تیتر، پاراگراف، لینک، تصویر، فهرست و نقل‌قول است و هنگام ذخیره پاک‌سازی می‌شود.</small><span id="blog-word-count">۰ کلمه</span></div>
+        <div class="blog-preview-wrap"><button class="button button-quiet button-small" type="button" id="toggle-preview" aria-expanded="false">نمایش پیش‌نمایش زنده</button><iframe id="blog-live-preview" title="پیش‌نمایش مقاله" sandbox="" hidden></iframe></div>
+      </section>
+    </div>
+    <aside class="blog-editor-sidebar">
+      <section class="panel blog-publish-panel"><div class="blog-section-title"><span class="blog-step">03</span><div><h2>انتشار</h2><p>وضعیت مطلب را مشخص کن.</p></div></div>
+        <label class="blog-publish-toggle"><input type="checkbox" name="published" value="1" {% if not post or post['published'] %}checked{% endif %}><span><b>انتشار در سایت</b><small>با خاموش کردن، مطلب به‌صورت پیش‌نویس ذخیره می‌شود.</small></span></label>
+        <button class="button button-primary button-full button-large" type="submit">ذخیره مطلب <span>←</span></button>
+        <a class="button button-quiet button-full" href="{{ url_for('academy') }}">رفتن به مرکز آموزش</a>
+      </section>
+      <section class="panel blog-tags-panel"><div class="blog-section-title"><span class="blog-step">04</span><div><h2>برچسب‌ها</h2><p>برای دسته‌بندی و پیدا شدن مطلب.</p></div></div>
+        <div class="blog-tag-options">{% for tag in tags %}<label class="blog-tag-option"><input type="checkbox" name="tag_ids" value="{{ tag['id'] }}" {% if tag['id'] in selected_tag_ids %}checked{% endif %}><span>{{ tag['name'] }}</span></label>{% else %}<small>از پنل کارکنان ابتدا برچسب بساز.</small>{% endfor %}</div>
+        <a class="blog-manage-tags" href="{{ url_for('staff_dashboard') }}#academy-tags">مدیریت برچسب‌ها ←</a>
+      </section>
+      <section class="panel blog-writing-tips"><span class="eyebrow">WRITING NOTES</span><h3>چند نکته برای مقاله بهتر</h3><ul><li>عنوان را دقیق و قابل‌فهم انتخاب کن.</li><li>مقاله را به بخش‌های کوتاه تقسیم کن.</li><li>برای تصاویر، لینک HTTPS قرار بده.</li><li>قبل از انتشار پیش‌نمایش را بررسی کن.</li></ul></section>
+    </aside>
+  </form>
+</section>
+{% endblock %}
+{% block scripts %}
+<script>
+(function(){
+ const content=document.getElementById('blog-content'),preview=document.getElementById('blog-live-preview'),toggle=document.getElementById('toggle-preview'),title=document.getElementById('blog-title'),summary=document.getElementById('blog-summary'),cover=document.getElementById('blog-cover'),coverPreview=document.getElementById('blog-cover-preview'),wordCount=document.getElementById('blog-word-count');
+ const snippets={heading:'<h2>عنوان بخش</h2>\n<p>متن بخش را اینجا بنویس.</p>\n',subheading:'<h3>زیرعنوان</h3>\n<p>متن توضیحی...</p>\n',bold:'<strong>متن پررنگ</strong>',italic:'<em>متن مورب</em>',quote:'<blockquote>نقل‌قول مهم</blockquote>\n',ul:'<ul>\n<li>مورد اول</li>\n<li>مورد دوم</li>\n</ul>\n',ol:'<ol>\n<li>مرحله اول</li>\n<li>مرحله دوم</li>\n</ol>\n',hr:'<hr>\n'};
+ function insert(value){const start=content.selectionStart,end=content.selectionEnd;content.setRangeText(value,start,end,'end');content.focus();updatePreview()}
+ document.querySelectorAll('[data-insert]').forEach(button=>button.addEventListener('click',()=>{const type=button.dataset.insert;if(type==='link'){const url=window.prompt('لینک HTTPS را وارد کن:','https://');if(!url||!/^https:\/\//i.test(url))return;insert('<a href="'+url.replace(/"/g,'&quot;')+'" target="_blank" rel="noopener">متن لینک</a>')}else if(type==='image'){const url=window.prompt('لینک تصویر HTTPS را وارد کن:','https://');if(!url||!/^https:\/\//i.test(url))return;const alt=window.prompt('توضیح کوتاه تصویر:','تصویر مقاله')||'تصویر مقاله';insert('<p><img src="'+url.replace(/"/g,'&quot;')+'" alt="'+alt.replace(/"/g,'&quot;')+'"></p>')}else insert(snippets[type]||'')}));
+ function updatePreview(){const raw=content.value||'';const words=raw.replace(/<[^>]*>/g,' ').trim().split(/\s+/).filter(Boolean).length;wordCount.textContent=words.toLocaleString('fa-IR')+' کلمه';if(preview&&!preview.hidden){const safe=raw.replace(/<script[\s\S]*?>[\s\S]*?<\/script>/gi,'').replace(/<iframe[\s\S]*?>[\s\S]*?<\/iframe>/gi,'');preview.srcdoc='<!doctype html><html lang="fa" dir="rtl"><meta charset="utf-8"><style>body{font-family:Tahoma,sans-serif;line-height:2;color:#e8eef8;background:#0b1220;padding:24px;max-width:800px;margin:auto}h2,h3{color:#83b4ff}img{max-width:100%;height:auto;border-radius:12px}blockquote{border-right:3px solid #4f8cff;padding:8px 16px;background:#121e30}a{color:#7fcbd9}pre,code{background:#18263a;padding:3px 6px;border-radius:5px}</style><h1>'+escapeText(title.value||'عنوان مقاله')+'</h1><p>'+escapeText(summary.value||'')+'</p>'+safe+'</html>'}}
+ function escapeText(value){return String(value).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;')}
+ content.addEventListener('input',updatePreview);title.addEventListener('input',updatePreview);summary.addEventListener('input',updatePreview);
+ if(toggle)toggle.addEventListener('click',()=>{const show=preview.hidden;preview.hidden=!show;toggle.setAttribute('aria-expanded',String(show));toggle.textContent=show?'بستن پیش‌نمایش':'نمایش پیش‌نمایش زنده';if(show)updatePreview()});
+ function updateCover(){const url=cover.value.trim();if(/^https:\/\//i.test(url)){coverPreview.innerHTML='<img alt="پیش‌نمایش کاور" src="'+escapeText(url)+'" onerror="this.parentElement.innerHTML=\'<div class=&quot;cover-preview-placeholder&quot;>تصویر بارگذاری نشد</div>\'">'}else coverPreview.innerHTML='<div class="cover-preview-placeholder"><span>MC</span><b>پیش‌نمایش تصویر کاور</b><small>با وارد کردن لینک تصویر، اینجا نمایش داده می‌شود.</small></div>'}
+ cover.addEventListener('input',updateCover);updateCover();updatePreview();
+})();
+</script>
+{% endblock %}
