@@ -43,6 +43,10 @@
         {% if role == 'owner' %}Owner · مالک سرور
         {% elif role == 'developer' %}Developer · توسعه‌دهنده
         {% elif role == 'hbuilder' %}H-Builder · سرپرست بیلد
+        {% elif role == 'manager' %}Manager · مدیر
+        {% elif role == 'admin' %}Admin · ادمین
+        {% elif role == 'moderator' %}Moderator · ناظر
+        {% elif role == 'helper' %}Helper · راهنما
         {% else %}Builder · معمار سرور
         {% endif %}
       </span>
@@ -112,6 +116,8 @@
         <a href="#homepage-images"><span>08</span> تصاویر صفحه اصلی</a>
         <a href="#staff-accounts"><span>09</span> مدیریت کادر استف</a>
       {% endif %}
+      <a href="{{ url_for('staff_portal.home') }}"><span>12</span> فضای کاری جدید کارکنان</a>
+      {% if role in ['owner','developer'] %}<a href="{{ url_for('staff_portal.applications') }}"><span>13</span> درخواست‌های عضویت</a>{% endif %}
       <a href="#staff-profile"><span>10</span> پروفایل و اعلان‌ها</a>
       <a href="#account-security"><span>11</span> امنیت و تغییر رمز</a>
     </aside>
