@@ -9,6 +9,7 @@ import json
 from flask import Flask, render_template, request, redirect, url_for, session, flash, jsonify, abort
 from werkzeug.security import generate_password_hash, check_password_hash
 from staff_portal.routes import portal as staff_portal_blueprint
+from staff_portal.db import ensure_schema as ensure_staff_workspace_schema
 import bleach
 
 app = Flask(__name__)
@@ -139,6 +140,8 @@ def init_db():
                                (username, generate_password_hash(password), "developer"))
                 db.execute("INSERT INTO app_meta(meta_key,meta_value) VALUES(?,?) ON CONFLICT(meta_key) DO UPDATE SET meta_value=excluded.meta_value",
                            (marker_key, bootstrap_marker))
+    # Keep the staff workspace tables and role migration available on every app route.
+    ensure_staff_workspace_schema()
 
 def permission_required(permission):
     def decorator(view):
