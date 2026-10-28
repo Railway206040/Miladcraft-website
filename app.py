@@ -542,7 +542,7 @@ def staff_dashboard():
             ORDER BY CASE t.status WHEN 'todo' THEN 0 WHEN 'doing' THEN 1 ELSE 2 END,t.id DESC LIMIT 50""", (g.account["id"], role)).fetchall()
         warnings = db.execute("SELECT * FROM warnings WHERE staff_username=? COLLATE NOCASE ORDER BY id DESC LIMIT 20", (g.account["username"],)).fetchall()
         recent_warnings = db.execute("SELECT * FROM warnings ORDER BY id DESC LIMIT 30").fetchall() if role in WARNING_ROLES else []
-        staff = db.execute("SELECT * FROM accounts WHERE role<>'player' ORDER BY CASE role WHEN 'owner' THEN 0 WHEN 'developer' THEN 1 ELSE 2 END,username").fetchall() if role in MASTER_ROLES | {"manager","admin"} else []
+        staff = db.execute("SELECT * FROM accounts WHERE role<>'player' ORDER BY CASE role WHEN 'owner' THEN 0 WHEN 'developer' THEN 1 ELSE 2 END,username").fetchall()
         members = db.execute("SELECT id,username,display_name,created_at FROM accounts WHERE role='player' ORDER BY id DESC LIMIT 200").fetchall() if role in MASTER_ROLES else []
         activity = db.execute("SELECT * FROM staff_activity ORDER BY id DESC LIMIT 40").fetchall() if role in MASTER_ROLES | {"manager","admin","hbuilder"} else db.execute("SELECT * FROM staff_activity WHERE account_id=? ORDER BY id DESC LIMIT 20", (g.account["id"],)).fetchall()
         news_items = db.execute("SELECT * FROM news ORDER BY id DESC LIMIT 30").fetchall() if role in CONTENT_ROLES else []
