@@ -204,3 +204,14 @@ input:focus,textarea:focus,select:focus{outline:none;border-color:rgba(93,158,25
 @media(max-width:1000px){.staff-home-hero{grid-template-columns:1fr .7fr}.staff-home-stats{grid-template-columns:repeat(2,minmax(0,1fr))}.staff-tool-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.staff-home-hero-copy{padding:28px}.staff-home-art-label b{font-size:24px}}
 @media(max-width:680px){.staff-home-page{padding:20px 0 45px}.staff-home-hero{grid-template-columns:1fr;border-radius:22px}.staff-home-hero-copy{padding:24px 21px}.staff-home-hero-copy h1{font-size:30px}.staff-home-art{min-height:180px;order:-1}.staff-home-art-label{bottom:18px;inset-inline-end:20px}.staff-home-art-label b{font-size:22px}.staff-home-stats{gap:9px;margin:14px 0 30px}.staff-home-stats article{padding:13px;gap:10px;border-radius:15px}.staff-home-stats small{font-size:10px}.staff-home-stats b{font-size:21px}.staff-stat-symbol{width:36px;height:36px;border-radius:11px}.staff-home-section-heading{align-items:flex-start;flex-direction:column}.staff-home-section-heading h2{font-size:23px}.staff-home-section-count{white-space:normal}.staff-tool-grid{grid-template-columns:1fr;gap:12px}.staff-tool-card{min-height:190px;padding:20px;border-radius:18px}.staff-home-footer{align-items:flex-start;flex-wrap:wrap;padding:16px}.staff-home-footer>div{min-width:calc(100% - 65px)}.staff-home-footer>a{margin-inline-start:58px}.staff-dashboard-entry{padding:21px;align-items:flex-start;flex-direction:column}.staff-dashboard-entry>.button{width:100%;justify-content:center}.staff-section-topbar{align-items:stretch;flex-direction:column}.staff-section-topbar .button{justify-content:center}.header-auth-button{font-size:11px;padding-inline:10px}}
 @media(prefers-reduced-motion:reduce){.staff-home-page,.staff-tool-card,.staff-dashboard-entry,.staff-section-page .workspace-main>.panel{animation:none!important}.staff-tool-card,.staff-home-stats article,.staff-home-art-cube{transition:none!important;animation:none!important}}
+
+/* Explicit section visibility wins over the generic panel reset. */
+.staff-section-page.staff-section-projects #projects,
+.staff-section-page.staff-section-tasks #tasks,
+.staff-section-page.staff-section-warnings #warnings,
+.staff-section-page.staff-section-activity #activity,
+.staff-section-page.staff-section-messenger #messenger,
+.staff-section-page.staff-section-staff-accounts #staff-accounts,
+.staff-section-page.staff-section-news-management #news-management,
+.staff-section-page.staff-section-academy-content #academy-content,
+.staff-section-page.staff-section-site-settings #site-settings{display:block!important}
