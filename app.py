@@ -8,9 +8,11 @@ from urllib.request import Request, urlopen
 import json
 from flask import Flask, render_template, request, redirect, url_for, session, flash, jsonify, abort
 from werkzeug.security import generate_password_hash, check_password_hash
+from staff_portal.routes import portal as staff_portal_blueprint
 import bleach
 
 app = Flask(__name__)
+app.register_blueprint(staff_portal_blueprint)
 app.secret_key = os.environ.get("SECRET_KEY", "development-only-change-this-before-deploying")
 app.config.update(SESSION_COOKIE_HTTPONLY=True, SESSION_COOKIE_SAMESITE="Lax",
                   SESSION_COOKIE_SECURE=os.environ.get("COOKIE_SECURE", "true").lower() == "true",
@@ -20,12 +22,22 @@ DATA_DIR.mkdir(parents=True, exist_ok=True)
 DB_PATH = Path(os.environ.get("DB_PATH", str(DATA_DIR / "miladcraft.db")))
 SERVER_ADDRESS = "miladcraft.seedloaf.gg"
 TELEGRAM_URL = os.environ.get("TELEGRAM_URL", "https://t.me/Milad_craft")
-ROLES = {"builder": "Builder", "hbuilder": "H-Builder", "developer": "Developer", "owner": "Owner"}
+ROLES = {
+    "builder": "Builder", "hbuilder": "H-Builder", "manager": "Manager",
+    "admin": "Admin", "moderator": "Moderator", "helper": "Helper",
+    "developer": "Developer", "owner": "Owner",
+}
+# Owner and Developer intentionally share the same permission set and management panel.
+MASTER_PERMISSIONS = {"projects_view", "projects_claim", "projects_create", "warnings_create", "full_access", "blog_manage"}
 ROLE_PERMISSIONS = {
     "builder": {"projects_view", "projects_claim"},
     "hbuilder": {"projects_view", "projects_create", "warnings_create"},
-    "developer": {"projects_view", "projects_claim", "projects_create", "warnings_create", "full_access", "blog_manage"},
-    "owner": {"projects_view", "projects_claim", "projects_create", "warnings_create", "full_access", "blog_manage"},
+    "manager": {"projects_view", "projects_create", "warnings_create"},
+    "admin": {"projects_view", "warnings_create"},
+    "moderator": {"projects_view"},
+    "helper": {"projects_view"},
+    "developer": set(MASTER_PERMISSIONS),
+    "owner": set(MASTER_PERMISSIONS),
 }
 BLOG_TAGS = ["p", "br", "strong", "b", "em", "i", "u", "h2", "h3", "h4", "ul", "ol", "li", "blockquote", "a", "img", "hr", "code", "pre"]
 BLOG_ATTRS = {"a": ["href", "title", "target", "rel"], "img": ["src", "alt", "title", "width"]}
