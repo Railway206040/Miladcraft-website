@@ -99,8 +99,9 @@ def review_application(application_id):
         if not app: abort(404)
         if app["status"]!="pending": flash("این درخواست قبلاً بررسی شده است.","error"); return redirect(url_for("staff_portal.applications"))
         if decision=="accept":
+            initial_password = secrets.token_urlsafe(10)
             try:
-                db.execute("INSERT INTO staff(username,password_hash,role,display_name) VALUES(?,?,?,?)",(app["username"],generate_password_hash(secrets.token_urlsafe(24)),app["requested_role"],app["display_name"]))
+                db.execute("INSERT INTO staff(username,password_hash,role,display_name) VALUES(?,?,?,?)",(app["username"],generate_password_hash(initial_password),app["requested_role"],app["display_name"]))
             except sqlite3.IntegrityError:
                 flash("ساخت حساب انجام نشد؛ نام کاربری تکراری است یا مهاجرت نقش‌ها اجرا نشده است.","error"); return redirect(url_for("staff_portal.applications"))
             new_id=db.execute("SELECT id FROM staff WHERE username=?",(app["username"],)).fetchone()["id"]
@@ -108,7 +109,7 @@ def review_application(application_id):
             if group: db.execute("INSERT OR IGNORE INTO staff_conversation_members(conversation_id,staff_id) VALUES(?,?)",(group["id"],new_id))
             db.execute("UPDATE staff_applications SET status='accepted',reviewer_id=?,review_note=?,reviewed_at=CURRENT_TIMESTAMP WHERE id=?",(session["staff_id"],note,application_id))
             db.execute("INSERT INTO staff_activity(staff_id,username,event_type,details) VALUES(?,?,?,?)",(new_id,app["username"],"staff_approved","درخواست عضویت تأیید شد"))
-            flash("درخواست تأیید شد. برای امنیت، رمز اولیه باید از طریق فرایند تنظیم رمز تحویل داده شود.","success")
+            flash(f"درخواست تأیید شد. رمز اولیه را به‌صورت امن به کاربر تحویل بده: {initial_password}","success")
         else:
             db.execute("UPDATE staff_applications SET status='rejected',reviewer_id=?,review_note=?,reviewed_at=CURRENT_TIMESTAMP WHERE id=?",(session["staff_id"],note,application_id))
             flash("درخواست رد شد.","success")
