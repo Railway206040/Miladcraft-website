@@ -96,6 +96,12 @@ def _add_column(db, table, name, definition):
 
 def init_db():
     with connect_db() as db:
+        if db.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name='post_comments'").fetchone():
+            if "account_id" not in _columns(db, "post_comments") and not db.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name='legacy_post_comments'").fetchone():
+                db.execute("ALTER TABLE post_comments RENAME TO legacy_post_comments")
+        if db.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name='post_feedback'").fetchone():
+            if "account_id" not in _columns(db, "post_feedback") and not db.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name='legacy_post_feedback'").fetchone():
+                db.execute("ALTER TABLE post_feedback RENAME TO legacy_post_feedback")
         db.executescript("""
         CREATE TABLE IF NOT EXISTS accounts (
           id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -116,7 +122,7 @@ def init_db():
         );
         CREATE TABLE IF NOT EXISTS site_settings (setting_key TEXT PRIMARY KEY, setting_value TEXT NOT NULL DEFAULT '');
         CREATE TABLE IF NOT EXISTS notifications (
-          id INTEGER PRIMARY KEY AUTOINCREMENT, recipient_id INTEGER NOT NULL,
+          id INTEGER PRIMARY KEY AUTOINCREMENT, recipient_type TEXT NOT NULL DEFAULT 'account', recipient_id INTEGER NOT NULL,
           title TEXT NOT NULL, body TEXT NOT NULL DEFAULT '', target_url TEXT NOT NULL DEFAULT '/',
           is_read INTEGER NOT NULL DEFAULT 0, created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
         );
@@ -206,6 +212,7 @@ def init_db():
         CREATE INDEX IF NOT EXISTS idx_notifications_account ON notifications(recipient_id, is_read, id DESC);
         """)
         _add_column(db, "warnings", "evidence_data", "TEXT NOT NULL DEFAULT ''")
+        _add_column(db, "notifications", "recipient_type", "TEXT NOT NULL DEFAULT 'account'")
         _add_column(db, "accounts", "bio", "TEXT NOT NULL DEFAULT ''")
         # Upgrade accounts from the previous split member/staff tables without deleting old records.
         if db.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name='members'").fetchone():
@@ -232,6 +239,29 @@ def init_db():
                         display_name=CASE WHEN excluded.display_name='' THEN accounts.display_name ELSE excluded.display_name END,
                         avatar_url=CASE WHEN excluded.avatar_url='' THEN accounts.avatar_url ELSE excluded.avatar_url END""",
                         (row["username"], row["password_hash"], role, display or row["username"], avatar or "", created))
+        if db.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name='legacy_post_comments'").fetchone():
+            for old in db.execute("SELECT * FROM legacy_post_comments").fetchall():
+                member = db.execute("SELECT username FROM members WHERE id=?", (old["member_id"],)).fetchone() if db.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name='members'").fetchone() else None
+                account = db.execute("SELECT id FROM accounts WHERE username=? COLLATE NOCASE", (member["username"],)).fetchone() if member else None
+                if account:
+                    db.execute("INSERT OR IGNORE INTO post_comments(id,post_id,account_id,body,reply_text,replied_by,replied_at,created_at) VALUES(?,?,?,?,?,?,?,?)",
+                        (old["id"],old["post_id"],account["id"],old["body"],old["reply_text"],old["replied_by"],old["replied_at"],old["created_at"]))
+        if db.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name='legacy_post_feedback'").fetchone():
+            for old in db.execute("SELECT * FROM legacy_post_feedback").fetchall():
+                member = db.execute("SELECT username FROM members WHERE id=?", (old["member_id"],)).fetchone() if db.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name='members'").fetchone() else None
+                account = db.execute("SELECT id FROM accounts WHERE username=? COLLATE NOCASE", (member["username"],)).fetchone() if member else None
+                if account:
+                    db.execute("INSERT OR IGNORE INTO post_feedback(post_id,account_id,vote,created_at) VALUES(?,?,?,?)",
+                        (old["post_id"],account["id"],old["vote"],old["created_at"]))
+        if "recipient_type" in _columns(db,"notifications"):
+            for old in db.execute("SELECT * FROM notifications").fetchall():
+                if old["recipient_type"] in ("member","staff"):
+                    legacy_table = "members" if old["recipient_type"] == "member" else "staff"
+                    if db.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name=?", (legacy_table,)).fetchone():
+                        legacy_account = db.execute("SELECT username FROM " + legacy_table + " WHERE id=?", (old["recipient_id"],)).fetchone()
+                        target_account = db.execute("SELECT id FROM accounts WHERE username=? COLLATE NOCASE", (legacy_account["username"],)).fetchone() if legacy_account else None
+                        if target_account:
+                            db.execute("UPDATE notifications SET recipient_type='account',recipient_id=? WHERE id=?", (target_account["id"],old["id"]))
         # Migrate old project claims to the new many-builder membership table.
         if "claimed_by" in _columns(db, "projects"):
             for row in db.execute("SELECT id,claimed_by FROM projects WHERE claimed_by IS NOT NULL AND claimed_by<>''").fetchall():
@@ -469,7 +499,8 @@ def account_profile():
         unread_count = db.execute("SELECT COUNT(*) FROM notifications WHERE recipient_id=? AND is_read=0", (g.account["id"],)).fetchone()[0]
         activity = db.execute("SELECT * FROM staff_activity WHERE account_id=? ORDER BY id DESC LIMIT 20", (g.account["id"],)).fetchall() if g.account["role"] != "player" else []
         presence = db.execute("SELECT * FROM staff_presence WHERE username=? COLLATE NOCASE", (g.account["username"],)).fetchone()
-    return render_template("account_profile.html", comments=comments, notifications=notifications, unread_count=unread_count, activity=activity, presence=presence)
+        warnings = db.execute("SELECT * FROM warnings WHERE staff_username=? COLLATE NOCASE ORDER BY id DESC LIMIT 30", (g.account["username"],)).fetchall() if g.account["role"] != "player" else []
+    return render_template("account_profile.html", comments=comments, notifications=notifications, unread_count=unread_count, activity=activity, presence=presence, warnings=warnings)
 
 @app.route("/staff/login")
 def staff_login():
@@ -673,7 +704,7 @@ def create_warning():
         else:
             db.execute("INSERT INTO warnings(staff_username,reason,evidence_url,evidence_data,issued_by) VALUES(?,?,?,?,?)",
                        (target_account["username"],reason,evidence_url,evidence_data,g.account["username"]))
-            db.execute("INSERT INTO notifications(recipient_id,title,body,target_url) VALUES(?,?,?,?)",
+            db.execute("INSERT INTO notifications(recipient_type,recipient_id,title,body,target_url) VALUES('account',?,?,?,?)",
                        (target_account["id"],"اخطار جدید",reason[:500],url_for("account_profile")+"#warnings"))
             flash("اخطار ثبت شد.", "success")
     log_activity(g.account,"warning_created",target)
