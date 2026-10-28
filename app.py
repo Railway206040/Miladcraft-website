@@ -203,18 +203,7 @@ def server_status():
 
 @app.route("/staff/login", methods=["GET", "POST"])
 def login():
-    if request.method == "POST":
-        username = request.form.get("username", "").strip()
-        password = request.form.get("password", "")
-        with connect_db() as db:
-            user = db.execute("SELECT * FROM staff WHERE username=?", (username,)).fetchone()
-        if user and check_password_hash(user["password_hash"], password):
-            session.clear()
-            session.permanent = True
-            session.update(staff_id=user["id"], username=user["username"], role=user["role"])
-            return redirect(url_for("dashboard"))
-        flash("نام کاربری یا رمز عبور اشتباه است.", "error")
-    return render_template("login.html")
+    return redirect(url_for("account_login", next=url_for("dashboard")))
 
 @app.route("/staff/change-password", methods=["POST"])
 def change_password():
@@ -250,6 +239,10 @@ def dashboard():
     if not session.get("staff_id"):
         return redirect(url_for("login"))
     with connect_db() as db:
+        staff_member = db.execute("SELECT * FROM staff WHERE id=?", (session["staff_id"],)).fetchone()
+        notifications = db.execute("SELECT * FROM notifications WHERE recipient_type='staff' AND recipient_id=? ORDER BY id DESC LIMIT 50", (session["staff_id"],)).fetchall()
+        unread_count = db.execute("SELECT COUNT(*) FROM notifications WHERE recipient_type='staff' AND recipient_id=? AND is_read=0", (session["staff_id"],)).fetchone()[0]
+        registered_members = db.execute("SELECT id,username,display_name,created_at FROM members ORDER BY id DESC LIMIT 200").fetchall() if session["role"] in ("owner", "developer") else []
         projects = db.execute("SELECT * FROM projects ORDER BY id DESC").fetchall()
         warnings = db.execute("SELECT * FROM warnings ORDER BY id DESC LIMIT 50").fetchall()
         staff = db.execute("SELECT id,username,role,created_at FROM staff ORDER BY id").fetchall() if session["role"] in ("owner", "developer") else []
@@ -267,7 +260,8 @@ def dashboard():
     return render_template("dashboard.html", projects=projects, warnings=warnings, staff=staff, posts=posts, news_items=news_items, news_count=news_count,
                            academy_tags=academy_tags, academy_questions=academy_questions,
                            project_count=project_count, warning_count=warning_count, post_count=post_count,
-                           site_images=site_images, role_label=ROLES.get(role, role),
+                           site_images=site_images, role_label=ROLES.get(role, role), staff_member=staff_member,
+                           notifications=notifications, unread_count=unread_count, registered_members=registered_members,
                            can_create="projects_create" in ROLE_PERMISSIONS[role],
                            can_warn="warnings_create" in ROLE_PERMISSIONS[role],
                            full_access="full_access" in ROLE_PERMISSIONS[role],
@@ -495,14 +489,23 @@ def account_login():
         username = request.form.get("username", "").strip()
         password = request.form.get("password", "")
         with connect_db() as db:
+            staff_user = db.execute("SELECT * FROM staff WHERE username=?", (username,)).fetchone()
             member = db.execute("SELECT * FROM members WHERE username=?", (username,)).fetchone()
-        if member and check_password_hash(member["password_hash"], password):
+        if staff_user and check_password_hash(staff_user["password_hash"], password):
+            session.clear()
             session.permanent = True
-            session["member_id"] = member["id"]
-            session["member_username"] = member["username"]
+            session.update(staff_id=staff_user["id"], username=staff_user["username"], role=staff_user["role"])
+            if member:
+                session["member_id"], session["member_username"] = member["id"], member["username"]
             next_url = request.args.get("next", "")
-            if next_url.startswith("/") and not next_url.startswith("//"):
-                return redirect(next_url)
+            if next_url.startswith("/") and not next_url.startswith("//"): return redirect(next_url)
+            return redirect(url_for("dashboard"))
+        if member and check_password_hash(member["password_hash"], password):
+            session.clear()
+            session.permanent = True
+            session["member_id"], session["member_username"] = member["id"], member["username"]
+            next_url = request.args.get("next", "")
+            if next_url.startswith("/") and not next_url.startswith("//"): return redirect(next_url)
             return redirect(url_for("account_profile"))
         flash("نام کاربری یا رمز عبور اشتباه است.", "error")
     return render_template("account_login.html")
@@ -555,29 +558,50 @@ def member_notification_read(notification_id):
         item=db.execute("SELECT target_url FROM notifications WHERE id=? AND recipient_type='member' AND recipient_id=?",(notification_id,session["member_id"])).fetchone()
     return redirect(item["target_url"] if item else url_for("account_profile"))
 
-@app.route("/staff/profile",methods=["GET","POST"])
+@app.route("/staff/profile", methods=["GET", "POST"])
 def staff_profile():
-    if not session.get("staff_id"): return redirect(url_for("login"))
+    return redirect(url_for("dashboard") + "#staff-profile")
+
+@app.route("/staff/profile/update", methods=["POST"])
+def update_staff_profile():
+    if not session.get("staff_id"): return redirect(url_for("account_login"))
     with connect_db() as db:
-        staff_member=db.execute("SELECT * FROM staff WHERE id=?",(session["staff_id"],)).fetchone()
-        if not staff_member: session.clear(); return redirect(url_for("login"))
-        if request.method=="POST":
-            display_name=bleach.clean(request.form.get("display_name","").strip(),tags=[],strip=True)[:80]
-            avatar_url=staff_member["avatar_url"]
-            uploaded=request.files.get("avatar_file")
-            if uploaded and uploaded.filename:
-                mime=uploaded.mimetype or ""; raw=uploaded.read(1_500_001)
-                if mime not in ("image/png","image/jpeg","image/webp","image/gif") or len(raw)>1_500_000:
-                    flash("تصویر باید PNG، JPG، WEBP یا GIF و حداکثر ۱٫۵ مگابایت باشد.","error"); return redirect(url_for("staff_profile"))
-                avatar_url="data:"+mime+";base64,"+base64.b64encode(raw).decode("ascii")
-            db.execute("UPDATE staff SET display_name=?,avatar_url=? WHERE id=?",(display_name or staff_member["username"],avatar_url,staff_member["id"]))
-            flash("پروفایل استف ذخیره شد.","success"); return redirect(url_for("staff_profile"))
-        staff_member=db.execute("SELECT * FROM staff WHERE id=?",(session["staff_id"],)).fetchone()
-        notifications=db.execute("SELECT * FROM notifications WHERE recipient_type='staff' AND recipient_id=? ORDER BY id DESC LIMIT 50",(session["staff_id"],)).fetchall()
-        unread_count=db.execute("SELECT COUNT(*) FROM notifications WHERE recipient_type='staff' AND recipient_id=? AND is_read=0",(session["staff_id"],)).fetchone()[0]
-        warnings=db.execute("SELECT * FROM warnings WHERE staff_username=? ORDER BY id DESC LIMIT 20",(session["username"],)).fetchall()
-        projects=db.execute("SELECT * FROM projects WHERE claimed_by=? ORDER BY id DESC LIMIT 20",(session["username"],)).fetchall()
-    return render_template("staff_profile.html",staff_member=staff_member,notifications=notifications,unread_count=unread_count,warnings=warnings,projects=projects,role_label=ROLES.get(session.get("role"),session.get("role")))
+        user = db.execute("SELECT * FROM staff WHERE id=?", (session["staff_id"],)).fetchone()
+        if not user:
+            session.clear()
+            return redirect(url_for("account_login"))
+        display_name = bleach.clean(request.form.get("display_name", "").strip(), tags=[], strip=True)[:80]
+        avatar_url = user["avatar_url"]
+        uploaded = request.files.get("avatar_file")
+        if uploaded and uploaded.filename:
+            mime = uploaded.mimetype or ""
+            raw = uploaded.read(1_500_001)
+            if mime not in ("image/png", "image/jpeg", "image/webp", "image/gif") or not raw or len(raw) > 1_500_000:
+                flash("تصویر باید PNG، JPG، WEBP یا GIF و حداکثر ۱٫۵ مگابایت باشد.", "error")
+                return redirect(url_for("dashboard") + "#staff-profile")
+            avatar_url = "data:" + mime + ";base64," + base64.b64encode(raw).decode("ascii")
+        db.execute("UPDATE staff SET display_name=?,avatar_url=? WHERE id=?", (display_name or user["username"], avatar_url, user["id"]))
+    flash("مشخصات پروفایل ذخیره شد.", "success")
+    return redirect(url_for("dashboard") + "#staff-profile")
+
+@app.route("/staff/promote-member", methods=["POST"])
+@permission_required("full_access")
+def promote_member():
+    username = request.form.get("username", "").strip()
+    role = request.form.get("role", "")
+    if role not in ("builder", "hbuilder", "developer", "owner"):
+        flash("نقش انتخاب‌شده معتبر نیست.", "error")
+        return redirect(url_for("dashboard") + "#staff-accounts")
+    with connect_db() as db:
+        member = db.execute("SELECT * FROM members WHERE username=?", (username,)).fetchone()
+        existing = db.execute("SELECT id FROM staff WHERE username=?", (username,)).fetchone()
+        if not member: flash("حساب ثبت‌شده‌ای با این نام کاربری پیدا نشد.", "error")
+        elif existing: flash("این حساب از قبل دسترسی استف دارد.", "error")
+        else:
+            db.execute("INSERT INTO staff(username,password_hash,role,display_name,avatar_url) VALUES(?,?,?,?,?)",
+                       (member["username"], member["password_hash"], role, member["display_name"], member["avatar_url"]))
+            flash("دسترسی استف فعال شد؛ کاربر با همان نام کاربری و رمز وارد می‌شود.", "success")
+    return redirect(url_for("dashboard") + "#staff-accounts")
 
 @app.route("/staff/notifications/<int:notification_id>/read",methods=["POST"])
 def staff_notification_read(notification_id):
@@ -585,7 +609,9 @@ def staff_notification_read(notification_id):
     with connect_db() as db:
         db.execute("UPDATE notifications SET is_read=1 WHERE id=? AND recipient_type='staff' AND recipient_id=?",(notification_id,session["staff_id"]))
         item=db.execute("SELECT target_url FROM notifications WHERE id=? AND recipient_type='staff' AND recipient_id=?",(notification_id,session["staff_id"])).fetchone()
-    return redirect(item["target_url"] if item else url_for("staff_profile"))
+    target = item["target_url"] if item else url_for("dashboard") + "#notifications"
+    if target.startswith("/staff/profile"): target = url_for("dashboard") + "#notifications"
+    return redirect(target)
 
 @app.route("/news")
 def news_page():
@@ -628,8 +654,8 @@ def blog_editor():
                                    protocols=BLOG_PROTOCOLS, strip=True)
             published = 1 if request.form.get("published") == "1" else 0
             selected_tag_ids = list({int(value) for value in request.form.getlist("tag_ids") if value.isdigit()})
-            if not title or not bleach.clean(content, tags=[], strip=True).strip() or not selected_tag_ids:
-                flash("عنوان، محتوای مقاله و انتخاب حداقل یک تگ الزامی است.", "error")
+            if not title or not bleach.clean(content, tags=[], strip=True).strip():
+                flash("واردکردن عنوان و محتوای مقاله الزامی است؛ انتخاب تگ اختیاری است.", "error")
             elif post_id and post:
                 db.execute("UPDATE posts SET title=?,summary=?,cover_url=?,content=?,published=?,updated_at=CURRENT_TIMESTAMP WHERE id=?",
                            (title, summary, cover_url, content, published, post_id))
