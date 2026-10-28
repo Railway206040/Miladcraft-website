@@ -1,49 +1,54 @@
 {% extends "base.html" %}
-{% block title %}MILAD CRAFT | دنیای رول‌پلی ماینکرفت{% endblock %}
+{% block title %}MILAD CRAFT | دنیای تو، داستان تو{% endblock %}
+{% block description %}به MILAD CRAFT بپیوند؛ سرور فارسی ماینکرفت با تجربه رول‌پلی، جامعه فعال، اخبار و مرکز آموزش.{% endblock %}
 {% block content %}
-<section class="hero-section">
+<section class="hero-section hero-v3">
   <div class="hero-copy">
-    <div class="eyebrow"><span class="status-pulse"></span> سرور رسمی ماینکرفت فارسی</div>
-    <h1>داستانت را<br><span>از نو بساز.</span></h1>
-    <p class="hero-description">به دنیای MILAD CRAFT وارد شو؛ جایی برای نقش‌آفرینی، ساختن شهرها، شکل‌دادن به داستان‌ها و تجربه یک جامعه زنده.</p>
-    <div class="hero-actions"><button class="button button-primary button-large" type="button" data-copy="{{ server_address }}"><span>کپی آدرس سرور</span><span aria-hidden="true">↗</span></button><a class="button button-quiet button-large" href="{{ url_for('account_register') }}">ساخت حساب کاربری</a></div>
-    <div class="hero-meta"><span><i class="meta-square"></i> Role Play</span><span><i class="meta-square meta-square-blue"></i> نسخه {{ server_version }}</span><span><i class="meta-square meta-square-gold"></i> شروع فعالیت: ۱۴۰۲</span></div>
+    <div class="eyebrow"><span class="status-pulse"></span> دنیای رسمی MILAD CRAFT <span class="eyebrow-divider">/</span> Minecraft {{ server_version }}</div>
+    <h1>داستانی که<br>با <span>تو شروع می‌شود.</span></h1>
+    <p class="hero-description">فقط وارد یک سرور نشو؛ وارد جهانی شو که انتخاب‌ها، شخصیت‌ها و ایده‌هایت می‌توانند بخشی از داستان آن باشند.</p>
+    <div class="hero-actions">
+      <button class="button button-primary button-large" type="button" data-copy="{{ server_address }}"><span class="button-symbol">↗</span><span>کپی آدرس سرور</span></button>
+      <a class="button button-outline button-large" href="{{ url_for('account_register') }}">ساخت حساب <span class="button-arrow">←</span></a>
+    </div>
+    <div class="hero-meta"><span><i class="meta-square"></i> Role Play</span><span><i class="meta-square meta-square-blue"></i> نسخه {{ server_version }}</span><span><i class="meta-square meta-square-gold"></i> از سال ۱۴۰۲</span></div>
   </div>
   <div class="hero-visual">
-    <div class="hero-image-frame"><img src="{{ site_images.get('hero_image') }}" alt="نمایی از فضای گیمینگ و دنیای ماینکرفت"><div class="hero-image-shade"></div>
-      <div class="floating-label label-top"><span class="label-icon">MC</span><span><b>جهان تو</b><small>ماجراجویی تازه</small></span></div>
+    <div class="hero-image-frame"><img src="{{ site_images.get('hero_image') }}" alt="چشم‌انداز دنیای MILAD CRAFT"><div class="hero-image-shade"></div>
+      <div class="hero-image-topline"><span class="hero-image-index">WORLD / 001</span><span class="hero-live"><i></i> SERVER STATUS</span></div>
+      <div class="hero-image-title"><span>BUILD YOUR LEGACY</span><b>جهان منتظر توست.</b></div>
       <div class="floating-label label-bottom"><span class="online-indicator" id="server-dot"></span><span><b id="server-state">در حال بررسی وضعیت</b><small id="server-count">وضعیت سرور</small></span></div>
     </div>
-    <div class="hero-image-caption"><span>01 / MILAD CRAFT</span><span>PLAY YOUR STORY</span></div>
+    <div class="hero-image-caption"><span>01 — MILAD CRAFT</span><span>PLAY YOUR STORY</span></div>
   </div>
+  <div class="hero-orbit hero-orbit-one"></div><div class="hero-orbit hero-orbit-two"></div>
 </section>
 <section class="server-strip">
-  <div class="server-strip-title"><span class="tiny-label">اتصال سریع</span><b>آماده‌ای وارد بازی شوی؟</b></div>
-  <div class="server-address"><span class="address-indicator"></span><code>{{ server_address }}</code><button type="button" class="copy-inline" data-copy="{{ server_address }}">کپی آدرس</button></div>
+  <div class="server-strip-title"><span class="tiny-label">آماده ورود؟</span><b>در چند ثانیه به ما بپیوند</b></div>
+  <div class="server-address"><span class="address-indicator"></span><code>{{ server_address }}</code><button type="button" class="copy-inline" data-copy="{{ server_address }}">کپی آدرس <span>↗</span></button></div>
   <div class="server-version"><span>نسخه پیشنهادی</span><b>{{ server_version }}</b></div>
 </section>
 <section class="section-block" id="about">
-  <div class="section-heading"><div><span class="eyebrow">چرا MILAD CRAFT؟</span><h2>فقط یک سرور نیست.</h2></div><p>دنیایی که انتخاب‌هایت روی تجربه تو و دیگر بازیکنان اثر می‌گذارد.</p></div>
+  <div class="section-heading"><div><span class="eyebrow">THE EXPERIENCE</span><h2>یک سرور؛ <span>هزاران امکان.</span></h2></div><p>از ساختن شخصیت تا خلق مکان‌های تازه؛ تجربه‌ای که با حضور جامعه معنا پیدا می‌کند.</p></div>
   <div class="feature-grid">
-    <article class="feature-card feature-card-wide"><img src="{{ site_images.get('roleplay_image') }}" alt="تجربه رول‌پلی"><div class="feature-overlay"><span class="feature-number">01</span><h3>Role Play</h3><p>نقش خودت را پیدا کن، داستان بساز و بخشی از جامعه باش.</p><a href="{{ url_for('academy') }}">شروع از مرکز آموزش <span>←</span></a></div></article>
-    <article class="feature-card"><img src="{{ site_images.get('survival_image') }}" alt="ساخت‌وساز و بقا"><div class="feature-overlay"><span class="feature-number">02</span><h3>ساختن و پیشرفت</h3><p>از ایده‌های کوچک تا پروژه‌هایی که جهان را تغییر می‌دهند.</p></div></article>
-    <article class="feature-card"><img src="{{ site_images.get('about_image') }}" alt="جامعه MILAD CRAFT"><div class="feature-overlay"><span class="feature-number">03</span><h3>جامعه‌ای برای همه</h3><p>با بازیکنان دیگر همراه شو و تجربه‌ات را به اشتراک بگذار.</p><a href="{{ telegram_url }}" target="_blank" rel="noopener noreferrer">پیوستن به تلگرام <span>←</span></a></div></article>
+    <article class="feature-card feature-card-wide"><img src="{{ site_images.get('roleplay_image') }}" alt="تجربه رول‌پلی در MILAD CRAFT"><div class="feature-overlay"><span class="feature-number">01 / MODE</span><h3>Role Play</h3><p>شخصیتت را بساز، نقش خودت را پیدا کن و داستانی خلق کن که فقط متعلق به توست.</p><a href="{{ url_for('academy') }}">راهنمای شروع <span>←</span></a></div></article>
+    <article class="feature-card"><img src="{{ site_images.get('survival_image') }}" alt="ساخت‌وساز و پیشرفت در بازی"><div class="feature-overlay"><span class="feature-number">02 / CREATE</span><h3>ساختن و پیشرفت</h3><p>ایده‌ها را به سازه‌ها و پروژه‌های ماندگار تبدیل کن.</p></div></article>
+    <article class="feature-card"><img src="{{ site_images.get('about_image') }}" alt="جامعه بازیکنان"><div class="feature-overlay"><span class="feature-number">03 / COMMUNITY</span><h3>جامعه‌ای زنده</h3><p>با بازیکنان همراه شو، تجربه‌ات را به اشتراک بگذار و بخشی از داستان باش.</p><a href="{{ telegram_url }}" target="_blank" rel="noopener noreferrer">پیوستن به تلگرام <span>↗</span></a></div></article>
   </div>
 </section>
 <section class="section-block section-split">
-  <div class="split-image"><img src="{{ site_images.get('gallery_image_1') }}" alt="نمایی از دنیای بازی"><div class="image-stamp">BUILT<br>TOGETHER</div></div>
-  <div class="split-copy"><span class="eyebrow">جامعه و خلاقیت</span><h2>اینجا هر بازیکن<br>بخشی از داستان است.</h2><p>از اولین ورود تا ساختن یک پروژه بزرگ، همه‌چیز با انتخاب تو شروع می‌شود. حساب کاربری بساز تا پروفایل، دیدگاه‌ها و فعالیت‌هایت را در یک جا مدیریت کنی.</p><a class="text-link" href="{{ url_for('account_register') }}">به جمع ما بپیوند <span>←</span></a></div>
+  <div class="split-image"><img src="{{ site_images.get('gallery_image_1') }}" alt="ساخت جهان با همکاری بازیکنان"><div class="image-stamp">MADE<br>TOGETHER</div></div>
+  <div class="split-copy"><span class="eyebrow">YOUR ACCOUNT, YOUR JOURNEY</span><h2>یک حساب برای<br><span>تمام مسیر تو.</span></h2><p>پروفایل، فعالیت‌ها، دیدگاه‌ها و اعلان‌ها را در یک مکان مدیریت کن. اگر به تیم کارکنان بپیوندی، همان حساب با دسترسی جدید ادامه می‌دهد.</p><a class="text-link" href="{{ url_for('account_portal') }}">ورود به فضای کاربری <span>←</span></a></div>
 </section>
 <section class="section-block content-section">
-  <div class="section-heading"><div><span class="eyebrow">تازه‌های سرور</span><h2>خبرها و راهنماها</h2></div><div class="heading-links"><a href="{{ url_for('news_page') }}">همه اخبار ←</a><a href="{{ url_for('academy') }}">مرکز آموزش ←</a></div></div>
+  <div class="section-heading"><div><span class="eyebrow">LATEST FROM THE WORLD</span><h2>تازه‌های <span>MILAD CRAFT</span></h2></div><div class="heading-links"><a href="{{ url_for('news_page') }}">همه اخبار ←</a><a href="{{ url_for('academy') }}">مرکز آموزش ←</a></div></div>
   <div class="content-grid">
-    <div class="content-column"><div class="content-column-title"><span class="content-icon">N</span><h3>آخرین اخبار</h3></div>{% for item in latest_news %}<a class="content-row" href="{{ url_for('news_detail',news_id=item['id']) }}">{% if item['cover_url'] %}<img src="{{ item['cover_url'] }}" alt="">{% else %}<span class="content-placeholder">MC</span>{% endif %}<span class="content-row-copy"><b>{{ item['title'] }}</b><small>{{ item['summary'] or 'اطلاعیه رسمی MILAD CRAFT' }}</small><em>{{ item['created_at'][:10] }}</em></span><span class="row-arrow">↗</span></a>{% else %}<div class="empty-state">هنوز خبری منتشر نشده است.</div>{% endfor %}</div>
-    <div class="content-column"><div class="content-column-title"><span class="content-icon content-icon-blue">A</span><h3>مرکز آموزش</h3></div>{% for post in latest_posts %}<a class="content-row" href="{{ url_for('blog_post',post_id=post['id']) }}">{% if post['cover_url'] %}<img src="{{ post['cover_url'] }}" alt="">{% else %}<span class="content-placeholder">MC</span>{% endif %}<span class="content-row-copy"><b>{{ post['title'] }}</b><small>{{ post['summary'] or 'راهنما و آموزش ماینکرفت' }}</small><em>{{ post['author'] }}</em></span><span class="row-arrow">↗</span></a>{% else %}<div class="empty-state">هنوز مطلب آموزشی منتشر نشده است.</div>{% endfor %}</div>
+    <div class="content-column"><div class="content-column-title"><span class="content-icon">N</span><h3>اخبار و اطلاعیه‌ها</h3></div>{% for item in latest_news %}<a class="content-row" href="{{ url_for('news_detail',news_id=item['id']) }}">{% if item['cover_url'] %}<img src="{{ item['cover_url'] }}" alt="">{% else %}<span class="content-placeholder">MC</span>{% endif %}<span class="content-row-copy"><b>{{ item['title'] }}</b><small>{{ item['summary'] or 'اطلاعیه رسمی MILAD CRAFT' }}</small><em>{{ item['created_at'][:10] }}</em></span><span class="row-arrow">↗</span></a>{% else %}<div class="empty-state">هنوز خبری منتشر نشده است.</div>{% endfor %}</div>
+    <div class="content-column"><div class="content-column-title"><span class="content-icon content-icon-blue">A</span><h3>راهنما و آموزش</h3></div>{% for post in latest_posts %}<a class="content-row" href="{{ url_for('blog_post',post_id=post['id']) }}">{% if post['cover_url'] %}<img src="{{ post['cover_url'] }}" alt="">{% else %}<span class="content-placeholder">MC</span>{% endif %}<span class="content-row-copy"><b>{{ post['title'] }}</b><small>{{ post['summary'] or 'راهنما و آموزش ماینکرفت' }}</small><em>{{ post['author'] }}</em></span><span class="row-arrow">↗</span></a>{% else %}<div class="empty-state">هنوز مطلب آموزشی منتشر نشده است.</div>{% endfor %}</div>
   </div>
 </section>
-<section class="join-banner"><div><span class="eyebrow">ماجراجویی بعدی منتظر توست</span><h2>آماده‌ای؟</h2><p>حسابت را بساز و قدم اول را بردار.</p></div><a class="button button-primary button-large" href="{{ url_for('account_register') }}">شروع کن <span>←</span></a></section>
+<section class="join-banner"><div><span class="eyebrow">YOUR NEXT ADVENTURE STARTS HERE</span><h2>نوبت توست.</h2><p>حساب بساز، به سرور بپیوند و داستانت را شروع کن.</p></div><a class="button button-primary button-large" href="{{ url_for('account_register') }}">شروع ماجراجویی <span>←</span></a></section>
 {% endblock %}
 {% block scripts %}<script>
-document.querySelectorAll('[data-copy]').forEach(function(button){button.addEventListener('click',async function(){try{await navigator.clipboard.writeText(button.dataset.copy);const old=button.innerHTML;button.innerHTML='کپی شد ✓';setTimeout(()=>button.innerHTML=old,1500)}catch(e){window.prompt('آدرس سرور را کپی کنید',button.dataset.copy)}})});
 fetch('{{ url_for("server_status") }}').then(r=>r.json()).then(d=>{const state=document.getElementById('server-state'),count=document.getElementById('server-count'),dot=document.getElementById('server-dot');if(d.online===true){state.textContent='سرور آنلاین است';count.textContent=(d.players_online||0)+' بازیکن آنلاین · '+(d.version||'نسخه در دسترس');dot.classList.add('online-indicator-active')}else if(d.online===false){state.textContent='سرور آفلاین است';count.textContent='در حال حاضر اتصال برقرار نیست'}else{state.textContent='وضعیت نامشخص';count.textContent='بررسی وضعیت موقتاً در دسترس نیست'}}).catch(()=>{document.getElementById('server-state').textContent='وضعیت نامشخص';document.getElementById('server-count').textContent='خطا در دریافت وضعیت سرور'});
 </script>{% endblock %}
