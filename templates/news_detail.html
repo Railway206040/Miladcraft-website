@@ -1,28 +1,4 @@
-<!doctype html><html lang="fa" dir="rtl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="description" content="{{ item['summary'] or item['title'] }} | اخبار MILAD CRAFT"><meta property="og:title" content="{{ item['title'] }} | MILAD CRAFT"><meta property="og:description" content="{{ item['summary'] }}"><title>{{ item['title'] }} | اخبار MILAD CRAFT</title><link rel="stylesheet" href="{{ url_for('static',filename='style.css') }}"></head><body><header class="topbar">
-  <a class="brand" href="/" aria-label="صفحه اصلی میلادکرفت">
-    <img class="brand-logo" src="{{ site_images.get('site_logo') or url_for('static',filename='logo.svg') }}" alt="لوگوی MILAD CRAFT">
-    <span class="brand-text">MILAD<span>CRAFT</span></span>
-  </a>
-  <nav class="main-nav" aria-label="ناوبری">
-    <a href="/">صفحه اصلی</a>
-    <a href="{{ url_for('academy') }}">مرکز آموزش</a>
-    <a href="{{ url_for('news_page') }}">اخبار</a>
-    <a href="{{ telegram_url }}" target="_blank" rel="noopener noreferrer">تلگرام</a>
-  </nav>
-  <div class="header-actions">
-    {% if session.get('staff_id') %}
-      <a class="button" href="{{ url_for('dashboard') }}">میز کار استف</a>
-      <a class="button button-outline" href="{{ url_for('staff_profile') }}">پروفایل ({{ session.get('username') }})</a>
-      <form method="post" action="{{ url_for('logout') }}" style="margin:0;display:inline;">
-        <button class="button button-danger" type="submit">خروج</button>
-      </form>
-    {% elif session.get('member_id') %}
-      <a class="button button-login-unified" href="{{ url_for('account_profile') }}">پروفایل ({{ session.get('member_username') }})</a>
-      <form method="post" action="{{ url_for('account_logout') }}" style="margin:0;display:inline;">
-        <button class="button button-outline" type="submit">خروج</button>
-      </form>
-    {% else %}
-      <a class="button button-login-unified" href="{{ url_for('account_portal') }}">ورود / ثبت‌نام</a>
-    {% endif %}
-  </div>
-</header><main class="article-reader"><a class="breadcrumb-link" href="{{ url_for('news_page') }}">اخبار <span>←</span></a>{% if item['cover_url'] %}<img class="reader-cover" src="{{ item['cover_url'] }}" alt="">{% endif %}<p class="eyebrow">MILAD CRAFT NEWS</p><h1>{{ item['title'] }}</h1><p class="reader-summary">{{ item['summary'] }}</p><div class="reader-meta">نویسنده: {{ item['author'] }} · {{ item['created_at'][:10] }}</div><article class="rich-content">{{ item['content']|safe }}</article></main></body></html>
+{% extends "base.html" %}
+{% block title %}{{ item['title'] }} | MILAD CRAFT{% endblock %}
+{% block description %}{{ item['summary'] or item['title'] }}{% endblock %}
+{% block content %}<article class="article-detail"><a class="back-link" href="{{ url_for('news_page') }}">← بازگشت به اخبار</a>{% if item['cover_url'] %}<img class="article-detail-cover" src="{{ item['cover_url'] }}" alt="">{% endif %}<div class="article-detail-head"><span class="eyebrow">OFFICIAL NEWS</span><h1>{{ item['title'] }}</h1><p>{{ item['summary'] }}</p><small>نویسنده: {{ item['author'] }} · {{ item['created_at'][:10] }}</small></div><div class="article-rich-content">{{ item['content']|safe }}</div></article>{% endblock %}
