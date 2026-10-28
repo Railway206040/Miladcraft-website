@@ -78,3 +78,7 @@ def ensure_schema():
             group_id = group["id"]
         for staff in db.execute("SELECT id FROM staff").fetchall():
             db.execute("INSERT OR IGNORE INTO staff_conversation_members(conversation_id,staff_id) VALUES(?,?)", (group_id, staff["id"]))
+        # Preserve legacy single-builder claims when enabling multi-builder projects.
+        db.execute("""INSERT OR IGNORE INTO project_members(project_id,staff_id)
+            SELECT p.id,s.id FROM projects p JOIN staff s ON s.username=p.claimed_by
+            WHERE p.claimed_by IS NOT NULL AND p.claimed_by<>''""")
