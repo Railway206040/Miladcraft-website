@@ -51,9 +51,13 @@ def home():
         warnings = db.execute("SELECT * FROM warnings WHERE staff_username=? ORDER BY id DESC LIMIT 20", (username,)).fetchall()
         staff = db.execute("SELECT id,username,role FROM staff ORDER BY username").fetchall()
         pending = db.execute("SELECT COUNT(*) FROM staff_applications WHERE status='pending'").fetchone()[0] if role in MASTER else 0
-        conversations = db.execute("SELECT c.* FROM staff_conversations c JOIN staff_conversation_members m ON m.conversation_id=c.id WHERE m.staff_id=? ORDER BY c.id", (staff_id,)).fetchall()
-        messages = db.execute("SELECT m.*,s.username AS sender FROM staff_messages m LEFT JOIN staff s ON s.id=m.sender_id WHERE m.conversation_id IN (SELECT conversation_id FROM staff_conversation_members WHERE staff_id=?) ORDER BY m.id DESC LIMIT 30", (staff_id,)).fetchall()
-    return render_template("workspace.html", page="home", role=role, role_label=ROLES.get(role,role.title()), projects=projects, tasks=tasks, activity=activity, warnings=warnings, staff=staff, pending=pending, conversations=conversations, messages=list(reversed(messages)), status="pending")
+        raw_conversations = db.execute("SELECT c.* FROM staff_conversations c JOIN staff_conversation_members m ON m.conversation_id=c.id WHERE m.staff_id=? ORDER BY CASE WHEN c.kind='group' THEN 0 ELSE 1 END,c.id", (staff_id,)).fetchall()
+        conversations = []
+        for convo in raw_conversations:
+            convo_messages = db.execute("SELECT m.*,s.username AS sender FROM staff_messages m LEFT JOIN staff s ON s.id=m.sender_id WHERE m.conversation_id=? ORDER BY m.id DESC LIMIT 40", (convo["id"],)).fetchall()
+            conversations.append({"id":convo["id"],"title":convo["title"],"kind":convo["kind"],"messages":list(reversed(convo_messages))})
+        online_count = db.execute("SELECT COUNT(*) FROM staff_presence WHERE is_online=1").fetchone()[0]
+    return render_template("workspace.html", page="home", role=role, role_label=ROLES.get(role,role.title()), projects=projects, tasks=tasks, activity=activity, warnings=warnings, staff=staff, pending=pending, conversations=conversations, online_count=online_count, status="pending")
 
 
 @portal.route("/apply", methods=["GET","POST"])
@@ -154,6 +158,37 @@ def update_task(task_id):
     flash("وضعیت تسک به‌روزرسانی شد.","success"); return redirect(url_for("staff_portal.home"))
 
 
+@portal.route("/messages/private", methods=["POST"])
+@login_required
+def start_private_message():
+    recipient = request.form.get("recipient", "").strip()
+    body = request.form.get("body", "").strip()
+    if not recipient or recipient == session.get("username") or not body or len(body) > 4000:
+        flash("گیرنده و پیام معتبر وارد کنید.", "error")
+        return redirect(url_for("staff_portal.home") + "#messenger")
+    with connect_db() as db:
+        target = db.execute("SELECT id,username FROM staff WHERE username=? COLLATE NOCASE", (recipient,)).fetchone()
+        if not target:
+            flash("کارمند موردنظر پیدا نشد.", "error")
+            return redirect(url_for("staff_portal.home") + "#messenger")
+        existing = db.execute("""SELECT c.id FROM staff_conversations c
+            JOIN staff_conversation_members a ON a.conversation_id=c.id AND a.staff_id=?
+            JOIN staff_conversation_members b ON b.conversation_id=c.id AND b.staff_id=?
+            WHERE c.kind='private' LIMIT 1""", (session["staff_id"], target["id"])).fetchone()
+        if existing:
+            conversation_id = existing["id"]
+        else:
+            conversation_id = db.execute("INSERT INTO staff_conversations(kind,title,created_by) VALUES('private',?,?)",
+                ("پیام خصوصی با " + target["username"], session["staff_id"])).lastrowid
+            db.execute("INSERT INTO staff_conversation_members(conversation_id,staff_id) VALUES(?,?)", (conversation_id, session["staff_id"]))
+            db.execute("INSERT INTO staff_conversation_members(conversation_id,staff_id) VALUES(?,?)", (conversation_id, target["id"]))
+        db.execute("INSERT INTO staff_messages(conversation_id,sender_id,body) VALUES(?,?,?)",
+            (conversation_id, session["staff_id"], body))
+        db.execute("INSERT INTO staff_activity(staff_id,username,event_type,details) VALUES(?,?,?,?)",
+            (target["id"], target["username"], "private_message", "پیام خصوصی جدید"))
+    return redirect(url_for("staff_portal.home") + "#messenger")
+
+
 @portal.route("/messages/send",methods=["POST"])
 @login_required
 def send_message():
@@ -163,6 +198,47 @@ def send_message():
         if not db.execute("SELECT 1 FROM staff_conversation_members WHERE conversation_id=? AND staff_id=?",(conversation_id,session["staff_id"])).fetchone(): abort(403)
         db.execute("INSERT INTO staff_messages(conversation_id,sender_id,body) VALUES(?,?,?)",(conversation_id,session["staff_id"],body))
     return redirect(url_for("staff_portal.home")+"#messenger")
+
+
+@portal.route("/api/minecraft-event", methods=["POST"])
+def minecraft_event():
+    import hmac
+    import os
+    expected = os.environ.get("MINECRAFT_WEBHOOK_TOKEN", "")
+    supplied = request.headers.get("X-MiladCraft-Token", "")
+    if not expected:
+        return {"error": "integration_not_configured"}, 503
+    if not supplied or not hmac.compare_digest(supplied, expected):
+        abort(401)
+    payload = request.get_json(silent=True) or {}
+    username = str(payload.get("username", "")).strip()[:32]
+    event = str(payload.get("event", "")).strip().lower()
+    if not username or event not in {"join", "quit", "leave"}:
+        abort(400)
+    with connect_db() as db:
+        member = db.execute("SELECT id,username FROM staff WHERE username=? COLLATE NOCASE", (username,)).fetchone()
+        if not member:
+            return {"status": "ignored", "reason": "not_staff"}, 200
+        row = db.execute("SELECT * FROM staff_presence WHERE username=?", (member["username"],)).fetchone()
+        if event == "join":
+            db.execute("""INSERT INTO staff_presence(username,is_online,joined_at,last_seen,total_minutes)
+                VALUES(?,1,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP,0)
+                ON CONFLICT(username) DO UPDATE SET
+                is_online=1, joined_at=CASE WHEN staff_presence.is_online=0 THEN CURRENT_TIMESTAMP ELSE staff_presence.joined_at END,
+                last_seen=CURRENT_TIMESTAMP""", (member["username"],))
+            event_type, details = "minecraft_join", "ورود به سرور Minecraft"
+        else:
+            if row and row["is_online"] and row["joined_at"]:
+                db.execute("""UPDATE staff_presence SET is_online=0,last_seen=CURRENT_TIMESTAMP,
+                    total_minutes=total_minutes+MAX(0,CAST((julianday('now')-julianday(joined_at))*1440 AS INTEGER)),
+                    joined_at=NULL WHERE username=?""", (member["username"],))
+            else:
+                db.execute("""INSERT INTO staff_presence(username,is_online,last_seen,total_minutes) VALUES(?,0,CURRENT_TIMESTAMP,0)
+                    ON CONFLICT(username) DO UPDATE SET is_online=0,last_seen=CURRENT_TIMESTAMP,joined_at=NULL""", (member["username"],))
+            event_type, details = "minecraft_quit", "خروج از سرور Minecraft"
+        db.execute("INSERT INTO staff_activity(staff_id,username,event_type,details) VALUES(?,?,?,?)",
+            (member["id"], member["username"], event_type, details))
+    return {"status": "ok", "username": member["username"], "event": event}, 200
 
 
 @portal.route("/warnings/create",methods=["POST"])
