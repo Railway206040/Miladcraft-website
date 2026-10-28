@@ -1,75 +1,8 @@
-<!doctype html>
-<html lang="fa" dir="rtl">
-<head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1">
-<meta name="robots" content="noindex,follow">
-<title>دروازه ورود و عضویت | MILAD CRAFT</title>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="{{ url_for('static',filename='style.css') }}">
-</head>
-<body class="account-page">
-
-<header class="topbar">
-  <a class="brand" href="/" aria-label="صفحه اصلی میلادکرفت">
-    <img class="brand-logo" src="{{ site_images.get('site_logo') or url_for('static',filename='logo.svg') }}" alt="لوگوی MILAD CRAFT">
-    <span class="brand-text">MILAD<span>CRAFT</span></span>
-  </a>
-  <nav class="main-nav" aria-label="ناوبری">
-    <a href="/">صفحه اصلی</a>
-    <a href="{{ url_for('academy') }}">مرکز آموزش</a>
-    <a href="{{ url_for('news_page') }}">اخبار</a>
-    <a href="{{ telegram_url }}" target="_blank" rel="noopener noreferrer">تلگرام</a>
-  </nav>
-  <div class="header-actions">
-    {% if session.get('staff_id') %}
-      <a class="button" href="{{ url_for('dashboard') }}">میز کار استف</a>
-      <a class="button button-outline" href="{{ url_for('staff_profile') }}">پروفایل ({{ session.get('username') }})</a>
-      <form method="post" action="{{ url_for('logout') }}" style="margin:0;display:inline;">
-        <button class="button button-danger" type="submit">خروج</button>
-      </form>
-    {% elif session.get('member_id') %}
-      <a class="button button-login-unified" href="{{ url_for('account_profile') }}">پروفایل ({{ session.get('member_username') }})</a>
-      <form method="post" action="{{ url_for('account_logout') }}" style="margin:0;display:inline;">
-        <button class="button button-outline" type="submit">خروج</button>
-      </form>
-    {% else %}
-      <a class="button button-login-unified" href="{{ url_for('account_portal') }}">ورود / ثبت‌نام</a>
-    {% endif %}
-  </div>
-</header>
-
-<main class="portal-shell">
-  <div style="text-align:center;margin-bottom:32px;">
-    <p class="eyebrow" style="justify-content:center;">CHOOSE YOUR ACCOUNT TYPE</p>
-    <h1 style="font-size:32px;margin:8px 0 12px;">حساب کاربری MILAD CRAFT</h1>
-    <p class="muted" style="font-size:16px;max-width:540px;margin:0 auto;">ورود و ثبت‌نام از یک مسیر انجام می‌شود. دسترسی استف فقط پس از تأیید دولوپر یا مالک فعال خواهد شد.</p>
-  </div>
-
-  <div class="portal-choice-grid">
-    <!-- STAFF OPTION -->
-    <a class="portal-choice staff-choice" href="{{ url_for('account_login') }}">
-      <span class="portal-choice-icon">STAFF</span>
-      <span class="eyebrow">MANAGEMENT ACCESS</span>
-      <h2>ورود به حساب کاربری</h2>
-      <p>پس از ورود، سایت دسترسی حساب را بررسی می‌کند و اگر نقش استف برایتان فعال شده باشد، پنل مناسب نمایش داده می‌شود.</p>
-      <strong>ورود با حساب <span>&larr;</span></strong>
-    </a>
-
-    <!-- PLAYER OPTION -->
-    <a class="portal-choice player-choice" href="{{ url_for('account_login') }}">
-      <span class="portal-choice-icon">PLAYER</span>
-      <span class="eyebrow">PLAYER COMMUNITY</span>
-      <h2>بازیکن سرور هستم</h2>
-      <p>ورود به با یک حساب می‌توانید پروفایل بسازید و در آکادمی مشارکت کنید. در صورت نیاز، همین حساب قابل ارتقا به دسترسی استف است.</p>
-      <strong>ورود / ثبت‌نام <span>&larr;</span></strong>
-    </a>
-  </div>
-
-  <div style="text-align:center;margin-top:24px;">
-    <a class="portal-back-link" href="/">&larr; بازگشت به صفحه اصلی سایت میلادکرفت</a>
-  </div>
-</main>
-</body>
-</html>
+{% extends "base.html" %}
+{% block title %}حساب کاربری | MILAD CRAFT{% endblock %}
+{% block content %}
+<section class="account-layout">
+  <div class="account-intro"><span class="eyebrow">MILAD CRAFT ACCOUNT</span><h1>همه‌چیز،<br><span>در یک حساب.</span></h1><p>با یک حساب وارد شو؛ پروفایل بازیکن داشته باش و اگر به تیم کارکنان پیوستی، همان حساب به پنل کارکنان هم دسترسی خواهد داشت.</p><div class="account-benefits"><div><span>01</span><b>یک حساب برای همه بخش‌ها</b></div><div><span>02</span><b>پروفایل و اعلان‌های شخصی</b></div><div><span>03</span><b>دسترسی کارکنان با تأیید مدیریت</b></div></div></div>
+  <div class="account-choice-card"><div class="choice-topline"><span class="status-pulse"></span> حساب MILAD CRAFT</div><h2>از کجا شروع کنیم؟</h2><p>اگر حساب داری وارد شو؛ در غیر این صورت یک حساب بازیکن بساز.</p><a class="button button-primary button-full button-large" href="{{ url_for('account_login') }}">ورود به حساب <span>←</span></a><a class="button button-quiet button-full button-large" href="{{ url_for('account_register') }}">ساخت حساب جدید</a><div class="choice-note"><span class="note-symbol">i</span><span>ساخت حساب به‌صورت خودکار دسترسی کارکنان نمی‌دهد. Developer یا Owner می‌تواند حساب ثبت‌شده را به یکی از نقش‌های تیم ارتقا دهد.</span></div></div>
+</section>
+{% endblock %}
