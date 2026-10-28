@@ -2551,3 +2551,18 @@ tr:hover td {
 .promote-member-fields input,.promote-member-fields select { width:100%; }
 @media(max-width:900px) { .staff-profile-workspace { grid-template-columns:1fr; } .dashboard-sidebar { position:static; max-height:none; } }
 @media(max-width:600px) { .promote-member-fields { grid-template-columns:1fr; } .staff-inbox-item { align-items:flex-start; flex-direction:column; } .staff-profile-identity { padding:0 16px; } .staff-profile-edit { padding:18px 16px 20px; } .staff-notifications-card { padding:16px; } }
+
+/* Image-led entry cards and dashboard section buttons */
+.portal-choice { position:relative; isolation:isolate; overflow:hidden; min-height:310px; display:flex; flex-direction:column; align-items:flex-start; justify-content:flex-end; gap:10px; background-color:#0d1524; background-size:cover; background-position:center; }
+.portal-choice::before { content:""; position:absolute; inset:0; z-index:-1; background:linear-gradient(180deg,rgba(7,13,24,.42) 0%,rgba(7,13,24,.78) 42%,rgba(7,13,24,.98) 100%); transition:opacity .2s ease; }
+.portal-choice::after { content:""; position:absolute; inset:0; z-index:-2; border-radius:inherit; background:linear-gradient(135deg,rgba(37,99,235,.22),transparent 55%); }
+.staff-choice { background-image:url("https://images.unsplash.com/photo-1542751371-adc38448a05e?auto=format&fit=crop&w=1000&q=85"); }
+.player-choice { background-image:url("https://images.unsplash.com/photo-1511512578047-dfb367046420?auto=format&fit=crop&w=1000&q=85"); }
+.portal-choice h2,.portal-choice p,.portal-choice strong,.portal-choice .eyebrow,.portal-choice-icon { position:relative; z-index:1; }
+.portal-choice p { max-width:520px; color:#d4dfef; line-height:1.9; }
+.portal-choice-icon { display:inline-flex; align-items:center; justify-content:center; min-width:74px; padding:7px 11px; border-radius:9px; border:1px solid rgba(147,197,253,.45); background:rgba(8,13,24,.62); color:#bfdbfe; font-size:11px; letter-spacing:.08em; }
+.portal-choice:hover { transform:translateY(-4px); border-color:rgba(147,197,253,.7); }
+.dashboard-sidebar a { border:1px solid transparent; background:rgba(8,13,24,.22); margin-bottom:5px; }
+.dashboard-sidebar a:hover,.dashboard-sidebar a:focus-visible { border-color:rgba(96,165,250,.35); background:rgba(37,99,235,.12); }
+.dashboard-sidebar a span { display:inline-grid; place-items:center; min-width:28px; height:26px; border-radius:7px; background:rgba(96,165,250,.12); color:var(--mc-diamond-bright); }
+@media(max-width:600px) { .portal-choice { min-height:270px; } }
