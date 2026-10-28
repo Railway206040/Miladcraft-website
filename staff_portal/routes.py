@@ -48,6 +48,8 @@ def home():
         projects = db.execute("SELECT * FROM projects ORDER BY id DESC LIMIT 20").fetchall()
         tasks = db.execute("SELECT t.*,p.title AS project_title FROM build_tasks t JOIN projects p ON p.id=t.project_id WHERE t.assigned_to=? ORDER BY t.id DESC LIMIT 20", (username,)).fetchall()
         activity = db.execute("SELECT * FROM staff_activity WHERE staff_id=? ORDER BY id DESC LIMIT 20", (staff_id,)).fetchall()
+        profile = db.execute("SELECT * FROM staff WHERE id=?", (staff_id,)).fetchone()
+        presence = db.execute("SELECT * FROM staff_presence WHERE username=?", (username,)).fetchone()
         warnings = db.execute("SELECT * FROM warnings WHERE staff_username=? ORDER BY id DESC LIMIT 20", (username,)).fetchall()
         staff = db.execute("SELECT id,username,role FROM staff ORDER BY username").fetchall()
         pending = db.execute("SELECT COUNT(*) FROM staff_applications WHERE status='pending'").fetchone()[0] if role in MASTER else 0
@@ -57,7 +59,7 @@ def home():
             convo_messages = db.execute("SELECT m.*,s.username AS sender FROM staff_messages m LEFT JOIN staff s ON s.id=m.sender_id WHERE m.conversation_id=? ORDER BY m.id DESC LIMIT 40", (convo["id"],)).fetchall()
             conversations.append({"id":convo["id"],"title":convo["title"],"kind":convo["kind"],"messages":list(reversed(convo_messages))})
         online_count = db.execute("SELECT COUNT(*) FROM staff_presence WHERE is_online=1").fetchone()[0]
-    return render_template("workspace.html", page="home", role=role, role_label=ROLES.get(role,role.title()), projects=projects, tasks=tasks, activity=activity, warnings=warnings, staff=staff, pending=pending, conversations=conversations, online_count=online_count, status="pending")
+    return render_template("workspace.html", page="home", role=role, role_label=ROLES.get(role,role.title()), projects=projects, tasks=tasks, activity=activity, warnings=warnings, staff=staff, profile=profile, presence=presence, pending=pending, conversations=conversations, online_count=online_count, status="pending")
 
 
 @portal.route("/apply", methods=["GET","POST"])
