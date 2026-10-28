@@ -351,8 +351,11 @@ def create_staff():
     else:
         try:
             with connect_db() as db:
+                if db.execute("SELECT id FROM members WHERE username=?", (username,)).fetchone():
+                    flash("این نام کاربری متعلق به حساب ثبت‌شده است؛ برای حفظ رمز فعلی از گزینه «اعطای دسترسی استف» استفاده کنید.", "error")
+                    return redirect(url_for("dashboard") + "#staff-accounts")
                 db.execute("INSERT INTO staff(username,password_hash,role) VALUES(?,?,?)", (username, generate_password_hash(password), role))
-            flash("حساب استف ساخته شد.", "success")
+            flash("حساب استف ساخته شد؛ کاربر از صفحه ورود یکپارچه وارد می‌شود.", "success")
         except sqlite3.IntegrityError:
             flash("این نام کاربری قبلاً ثبت شده است.", "error")
     return redirect(url_for("dashboard"))
@@ -475,6 +478,9 @@ def account_register():
         else:
             try:
                 with connect_db() as db:
+                    if db.execute("SELECT id FROM staff WHERE username=?", (username,)).fetchone():
+                        flash("این نام کاربری از قبل حساب استف دارد؛ از صفحه ورود با همان حساب وارد شوید.", "error")
+                        return render_template("account_register.html")
                     db.execute("INSERT INTO members(username,password_hash,display_name) VALUES(?,?,?)",
                                (username, generate_password_hash(password), display_name or username))
                 flash("ثبت‌نام انجام شد؛ اکنون وارد حساب شوید.", "success")
@@ -505,7 +511,8 @@ def account_login():
             session.permanent = True
             session["member_id"], session["member_username"] = member["id"], member["username"]
             next_url = request.args.get("next", "")
-            if next_url.startswith("/") and not next_url.startswith("//"): return redirect(next_url)
+            if next_url.startswith("/") and not next_url.startswith("//") and not next_url.startswith("/staff"):
+                return redirect(next_url)
             return redirect(url_for("account_profile"))
         flash("نام کاربری یا رمز عبور اشتباه است.", "error")
     return render_template("account_login.html")
