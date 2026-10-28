@@ -373,6 +373,10 @@ def create_staff():
                     flash("این نام کاربری متعلق به حساب ثبت‌شده است؛ برای حفظ رمز فعلی از گزینه «اعطای دسترسی استف» استفاده کنید.", "error")
                     return redirect(url_for("dashboard") + "#staff-accounts")
                 db.execute("INSERT INTO staff(username,password_hash,role) VALUES(?,?,?)", (username, generate_password_hash(password), role))
+                new_staff = db.execute("SELECT id FROM staff WHERE username=?", (username,)).fetchone()
+                group = db.execute("SELECT id FROM staff_conversations WHERE kind='group' AND title='همه کارکنان' LIMIT 1").fetchone()
+                if new_staff and group:
+                    db.execute("INSERT OR IGNORE INTO staff_conversation_members(conversation_id,staff_id) VALUES(?,?)", (group["id"], new_staff["id"]))
             flash("حساب استف ساخته شد؛ کاربر از صفحه ورود یکپارچه وارد می‌شود.", "success")
         except sqlite3.IntegrityError:
             flash("این نام کاربری قبلاً ثبت شده است.", "error")
