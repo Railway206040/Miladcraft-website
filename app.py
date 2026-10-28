@@ -325,7 +325,7 @@ def staff_required(view):
         account = getattr(g, "account", None)
         if not account:
             flash("ابتدا وارد حساب شوید.", "error")
-            return redirect(url_for("account_login", next=request.path))
+            return redirect(url_for("account_login"))
         if account["role"] == "player":
             flash("این بخش مخصوص کارکنان سرور است.", "error")
             return redirect(url_for("account_profile"))
