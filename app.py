@@ -217,31 +217,34 @@ def init_db():
         _add_column(db, "warnings", "evidence_data", "TEXT NOT NULL DEFAULT ''")
         _add_column(db, "notifications", "recipient_type", "TEXT NOT NULL DEFAULT 'account'")
         _add_column(db, "accounts", "bio", "TEXT NOT NULL DEFAULT ''")
-        # Upgrade accounts from the previous split member/staff tables without deleting old records.
-        if db.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name='members'").fetchone():
-            old_cols = _columns(db, "members")
-            if {"username", "password_hash"}.issubset(old_cols):
-                for row in db.execute("SELECT * FROM members").fetchall():
-                    display = row["display_name"] if "display_name" in old_cols else row["username"]
-                    avatar = row["avatar_url"] if "avatar_url" in old_cols else ""
-                    created = row["created_at"] if "created_at" in old_cols else None
-                    db.execute("""INSERT OR IGNORE INTO accounts(username,password_hash,role,display_name,avatar_url,created_at)
-                        VALUES(?,?,'player',?,?,COALESCE(?,CURRENT_TIMESTAMP))""",
-                        (row["username"], row["password_hash"], display or row["username"], avatar or "", created))
-        if db.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name='staff'").fetchone():
-            old_cols = _columns(db, "staff")
-            if {"username", "password_hash", "role"}.issubset(old_cols):
-                for row in db.execute("SELECT * FROM staff").fetchall():
-                    display = row["display_name"] if "display_name" in old_cols else row["username"]
-                    avatar = row["avatar_url"] if "avatar_url" in old_cols else ""
-                    created = row["created_at"] if "created_at" in old_cols else None
-                    role = row["role"] if row["role"] in STAFF_ROLES else "builder"
-                    db.execute("""INSERT INTO accounts(username,password_hash,role,display_name,avatar_url,created_at)
-                        VALUES(?,?,?,?,?,COALESCE(?,CURRENT_TIMESTAMP))
-                        ON CONFLICT(username) DO UPDATE SET password_hash=excluded.password_hash,role=excluded.role,
-                        display_name=CASE WHEN excluded.display_name='' THEN accounts.display_name ELSE excluded.display_name END,
-                        avatar_url=CASE WHEN excluded.avatar_url='' THEN accounts.avatar_url ELSE excluded.avatar_url END""",
-                        (row["username"], row["password_hash"], role, display or row["username"], avatar or "", created))
+        # Import the old split account tables only once; later deployments must preserve role changes.
+        if not db.execute("SELECT 1 FROM app_meta WHERE meta_key='migration:legacy_accounts_v1'").fetchone():
+            if db.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name='members'").fetchone():
+                old_cols = _columns(db, "members")
+                if {"username", "password_hash"}.issubset(old_cols):
+                    for row in db.execute("SELECT * FROM members").fetchall():
+                        display = row["display_name"] if "display_name" in old_cols else row["username"]
+                        avatar = row["avatar_url"] if "avatar_url" in old_cols else ""
+                        created = row["created_at"] if "created_at" in old_cols else None
+                        db.execute("""INSERT OR IGNORE INTO accounts(username,password_hash,role,display_name,avatar_url,created_at)
+                            VALUES(?,?,'player',?,?,COALESCE(?,CURRENT_TIMESTAMP))""",
+                            (row["username"], row["password_hash"], display or row["username"], avatar or "", created))
+            if db.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name='staff'").fetchone():
+                old_cols = _columns(db, "staff")
+                if {"username", "password_hash", "role"}.issubset(old_cols):
+                    for row in db.execute("SELECT * FROM staff").fetchall():
+                        display = row["display_name"] if "display_name" in old_cols else row["username"]
+                        avatar = row["avatar_url"] if "avatar_url" in old_cols else ""
+                        created = row["created_at"] if "created_at" in old_cols else None
+                        role = row["role"] if row["role"] in STAFF_ROLES else "builder"
+                        db.execute("""INSERT INTO accounts(username,password_hash,role,display_name,avatar_url,created_at)
+                            VALUES(?,?,?,?,?,COALESCE(?,CURRENT_TIMESTAMP))
+                            ON CONFLICT(username) DO UPDATE SET password_hash=excluded.password_hash,role=excluded.role,
+                            display_name=CASE WHEN excluded.display_name='' THEN accounts.display_name ELSE excluded.display_name END,
+                            avatar_url=CASE WHEN excluded.avatar_url='' THEN accounts.avatar_url ELSE excluded.avatar_url END""",
+                            (row["username"], row["password_hash"], role, display or row["username"], avatar or "", created))
+
+            db.execute("INSERT INTO app_meta(meta_key,meta_value) VALUES('migration:legacy_accounts_v1','done')")
         if db.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name='legacy_post_comments'").fetchone():
             for old in db.execute("SELECT * FROM legacy_post_comments").fetchall():
                 member = db.execute("SELECT username FROM members WHERE id=?", (old["member_id"],)).fetchone() if db.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name='members'").fetchone() else None
@@ -280,8 +283,6 @@ def init_db():
             group_id = db.execute("INSERT INTO conversations(kind,title) VALUES('group','گروه کارکنان')").lastrowid
         else:
             group_id = group["id"]
-        for row in db.execute("SELECT id FROM accounts WHERE role<>'player'").fetchall():
-            db.execute("INSERT OR IGNORE INTO conversation_members(conversation_id,account_id) VALUES(?,?)", (group_id, row["id"]))
         # Bootstrap an initial Owner only when configured; do not overwrite an existing account password.
         username = os.environ.get("BOOTSTRAP_OWNER_USERNAME", "").strip()
         password = os.environ.get("BOOTSTRAP_OWNER_PASSWORD", "")
@@ -292,6 +293,10 @@ def init_db():
                            (username, generate_password_hash(password), username))
             elif found:
                 db.execute("UPDATE accounts SET role='owner' WHERE id=?", (found["id"],))
+        group = db.execute("SELECT id FROM conversations WHERE kind='group' AND title='گروه کارکنان' LIMIT 1").fetchone()
+        if group:
+            for row in db.execute("SELECT id FROM accounts WHERE role<>'player'").fetchall():
+                db.execute("INSERT OR IGNORE INTO conversation_members(conversation_id,account_id) VALUES(?,?)", (group["id"],row["id"]))
 
 def log_activity(account, event_type, details=""):
     if not account:
