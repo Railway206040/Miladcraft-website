@@ -616,13 +616,13 @@ def create_project():
         required = 1
     if not title or not description:
         flash("عنوان و توضیحات پروژه الزامی است.", "error")
-        return redirect(url_for("staff_dashboard") + "#projects")
+        return redirect(url_for("staff_dashboard", section="projects"))
     with connect_db() as db:
         db.execute("INSERT INTO projects(title,description,required_builders,status,created_by) VALUES(?,?,?,'Open',?)",
                    (title,description,required,g.account["username"]))
     log_activity(g.account,"project_created",title)
     flash("پروژه ساخته شد.", "success")
-    return redirect(url_for("staff_dashboard") + "#projects")
+    return redirect(url_for("staff_dashboard", section="projects"))
 
 @app.route("/projects/<int:project_id>/join", methods=["POST"])
 @staff_required
@@ -649,7 +649,7 @@ def join_project(project_id):
                 db.execute("UPDATE projects SET status=? WHERE id=?", ("Full" if count >= project["required_builders"] else "In progress",project_id))
                 flash("به پروژه پیوستید.", "success")
     log_activity(g.account,"project_joined",project["title"])
-    return redirect(url_for("staff_dashboard") + "#projects")
+    return redirect(url_for("staff_dashboard", section="projects"))
 
 @app.route("/projects/<int:project_id>/tasks/create", methods=["POST"])
 @staff_required
