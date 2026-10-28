@@ -1,5 +1,6 @@
 """Role-aware staff portal routes."""
 from functools import wraps
+import base64
 import secrets
 import sqlite3
 from flask import Blueprint, abort, flash, redirect, render_template, request, session, url_for
@@ -254,6 +255,18 @@ def minecraft_event():
 @role_required(*BUILD_MANAGERS)
 def create_warning():
     target=request.form.get("staff_username","").strip(); reason=request.form.get("reason","").strip(); evidence=request.form.get("evidence_url","").strip()
+    uploaded=request.files.get("evidence_file")
+    if uploaded and uploaded.filename:
+        mime=uploaded.mimetype or ""
+        raw=uploaded.read(8_000_001)
+        allowed={"image/png","image/jpeg","image/webp","image/gif","video/mp4","video/webm"}
+        if mime not in allowed or not raw or len(raw)>8_000_000:
+            flash("مدرک باید PNG/JPG/WEBP/GIF یا MP4/WEBM و حداکثر ۸ مگابایت باشد.","error")
+            return redirect(url_for("staff_portal.home")+"#warnings")
+        evidence="data:"+mime+";base64,"+base64.b64encode(raw).decode("ascii")
+    elif evidence and (not evidence.startswith(("https://","http://")) or len(evidence)>1500):
+        flash("لینک مدرک باید با HTTP یا HTTPS شروع شود.","error")
+        return redirect(url_for("staff_portal.home")+"#warnings")
     role=session.get("role","").lower()
     with connect_db() as db:
         target_row=db.execute("SELECT id,role FROM staff WHERE username=?",(target,)).fetchone()
