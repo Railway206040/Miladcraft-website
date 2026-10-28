@@ -53,6 +53,9 @@ def ensure_schema():
           id INTEGER PRIMARY KEY AUTOINCREMENT, staff_id INTEGER NOT NULL, username TEXT NOT NULL,
           event_type TEXT NOT NULL, details TEXT NOT NULL DEFAULT '', occurred_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP);
         CREATE INDEX IF NOT EXISTS idx_staff_activity_user_time ON staff_activity(staff_id,occurred_at DESC);
+        CREATE TABLE IF NOT EXISTS staff_presence (
+          username TEXT PRIMARY KEY, is_online INTEGER NOT NULL DEFAULT 0,
+          joined_at TEXT, last_seen TEXT, total_minutes INTEGER NOT NULL DEFAULT 0);
         CREATE TABLE IF NOT EXISTS staff_conversations (
           id INTEGER PRIMARY KEY AUTOINCREMENT, kind TEXT NOT NULL CHECK(kind IN ('group','private')),
           title TEXT NOT NULL DEFAULT '', created_by INTEGER NOT NULL, created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP);
