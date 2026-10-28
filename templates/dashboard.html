@@ -460,7 +460,7 @@
             <p class="muted">کاربر ابتدا حساب می‌سازد؛ پس از تأیید، با همان نام کاربری و رمز به پنل نقش انتخاب‌شده دسترسی خواهد داشت.</p>
             <div class="promote-member-fields"><div><label for="promote-username">نام کاربری بازیکن</label><input id="promote-username" name="username" required list="registered-member-names" placeholder="نام کاربری دقیق"></div>
               <datalist id="registered-member-names">{% for registered in registered_members %}<option value="{{ registered['username'] }}">{{ registered['display_name'] }}</option>{% endfor %}</datalist>
-              <div><label for="promote-role">نقش جدید</label><select id="promote-role" name="role" required><option value="builder">Builder — بیلدر</option><option value="hbuilder">H-Builder — سرپرست بیلد</option><option value="developer">Developer — توسعه‌دهنده</option><option value="owner">Owner — مالک</option></select></div>
+              <div><label for="promote-role">نقش جدید</label><select id="promote-role" name="role" required><option value="builder">Builder — بیلدر</option><option value="hbuilder">H-Builder — سرپرست بیلد</option><option value="helper">Helper — راهنما</option><option value="moderator">Moderator — ناظر</option><option value="admin">Admin — ادمین</option><option value="manager">Manager — مدیر</option><option value="developer">Developer — توسعه‌دهنده</option><option value="owner">Owner — مالک</option></select></div>
             </div><button class="button" type="submit">فعال‌سازی دسترسی استف</button>
           </form>
 
@@ -480,6 +480,10 @@
                 <select name="role" required>
                   <option value="builder">Builder (سازنده)</option>
                   <option value="hbuilder">H-Builder (سرپرست بیلد)</option>
+                  <option value="helper">Helper (راهنما)</option>
+                  <option value="moderator">Moderator (ناظر)</option>
+                  <option value="admin">Admin (ادمین)</option>
+                  <option value="manager">Manager (مدیر)</option>
                   <option value="developer">Developer (توسعه‌دهنده)</option>
                   <option value="owner">Owner (مالک)</option>
                 </select>
