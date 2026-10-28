@@ -112,7 +112,8 @@
         <a href="#homepage-images"><span>08</span> تصاویر صفحه اصلی</a>
         <a href="#staff-accounts"><span>09</span> مدیریت کادر استف</a>
       {% endif %}
-      <a href="#account-security"><span>10</span> امنیت و تغییر رمز</a>
+      <a href="#staff-profile"><span>10</span> پروفایل و اعلان‌ها</a>
+      <a href="#account-security"><span>11</span> امنیت و تغییر رمز</a>
     </aside>
 
     <!-- MAIN SECTIONS -->
@@ -448,6 +449,15 @@
             <span class="count">{{ staff|length }} عضو فعال</span>
           </div>
 
+          <form class="panel-form promote-member-form" method="post" action="{{ url_for('promote_member') }}">
+            <h3>اعطای دسترسی استف به حساب ثبت‌شده</h3>
+            <p class="muted">کاربر ابتدا حساب می‌سازد؛ پس از تأیید، با همان نام کاربری و رمز به پنل نقش انتخاب‌شده دسترسی خواهد داشت.</p>
+            <div class="promote-member-fields"><div><label for="promote-username">نام کاربری بازیکن</label><input id="promote-username" name="username" required list="registered-member-names" placeholder="نام کاربری دقیق"></div>
+              <datalist id="registered-member-names">{% for registered in registered_members %}<option value="{{ registered['username'] }}">{{ registered['display_name'] }}</option>{% endfor %}</datalist>
+              <div><label for="promote-role">نقش جدید</label><select id="promote-role" name="role" required><option value="builder">Builder — بیلدر</option><option value="hbuilder">H-Builder — سرپرست بیلد</option><option value="developer">Developer — توسعه‌دهنده</option><option value="owner">Owner — مالک</option></select></div>
+            </div><button class="button" type="submit">فعال‌سازی دسترسی استف</button>
+          </form>
+
           <form class="panel-form" method="post" action="{{ url_for('create_staff') }}" style="background:#0d131c;padding:22px;border:2px solid var(--mc-dark-500);border-radius:8px;margin-bottom:28px;">
             <h3 style="margin:0 0 12px;color:var(--mc-diamond-bright);font-size:16px;">ایجاد حساب عضو جدید استف</h3>
             <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px;">
@@ -502,6 +512,36 @@
           </div>
         </section>
       {% endif %}
+
+      <!-- STAFF PROFILE AND INBOX -->
+      <section class="section-block staff-workspace-profile" id="staff-profile">
+        <div class="section-heading"><div><p class="eyebrow">YOUR STAFF PROFILE</p><h2>پروفایل و اعلان‌های من</h2><p class="muted">اطلاعات شخصی و پیام‌های مدیریتی را از همین بخش مدیریت کنید.</p></div><span class="role-chip">{{ role_label }}</span></div>
+        <div class="staff-profile-workspace">
+          <article class="staff-profile-card">
+            <div class="staff-profile-cover"><img src="{{ site_images.get('about_image') }}" alt="" loading="lazy"></div>
+            <div class="staff-profile-identity">
+              {% if staff_member['avatar_url'] %}<img class="staff-workspace-avatar" src="{{ staff_member['avatar_url'] }}" alt="تصویر پروفایل">
+              {% else %}<div class="staff-workspace-avatar staff-workspace-avatar-fallback">{{ (staff_member['display_name'] or staff_member['username'])[0]|upper }}</div>{% endif %}
+              <div><h3>{{ staff_member['display_name'] or staff_member['username'] }}</h3><p>@{{ staff_member['username'] }} · {{ role_label }}</p></div>
+            </div>
+            <form method="post" action="{{ url_for('update_staff_profile') }}" enctype="multipart/form-data" class="panel-form staff-profile-edit">
+              <label for="staff-display-name">نام نمایشی</label><input id="staff-display-name" name="display_name" maxlength="80" value="{{ staff_member['display_name'] }}" placeholder="نام نمایشی شما">
+              <label for="staff-avatar-file">تصویر پروفایل</label><input id="staff-avatar-file" name="avatar_file" type="file" accept="image/png,image/jpeg,image/webp,image/gif">
+              <small class="tiny-note">PNG، JPG، WEBP یا GIF؛ حداکثر ۱٫۵ مگابایت.</small><button class="button" type="submit">ذخیره پروفایل</button>
+            </form>
+          </article>
+          <article class="staff-notifications-card" id="notifications">
+            <div class="block-header"><div><p class="eyebrow">INBOX</p><h3>اعلان‌های مدیریتی</h3></div><span class="count-pill">{{ unread_count }} خوانده‌نشده</span></div>
+            <div class="staff-inbox-list">
+              {% for notification in notifications %}
+                <div class="staff-inbox-item {% if not notification['is_read'] %}is-unread{% endif %}"><div><strong>{{ notification['title'] }}</strong><p>{{ notification['body'] }}</p><small>{{ notification['created_at'][:16] }}</small></div>
+                  {% if not notification['is_read'] %}<form method="post" action="{{ url_for('staff_notification_read',notification_id=notification['id']) }}"><button class="button button-outline" type="submit">خواندم</button></form>{% endif %}
+                </div>
+              {% else %}<div class="empty-state">اعلان جدیدی ندارید.</div>{% endfor %}
+            </div>
+          </article>
+        </div>
+      </section>
 
       <!-- ACCOUNT SECURITY -->
       <section class="section-block" id="account-security">
