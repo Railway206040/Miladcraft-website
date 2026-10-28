@@ -1,0 +1,42 @@
+{% extends "base.html" %}
+{% block title %}داشبورد کارکنان | MILAD CRAFT{% endblock %}
+{% block content %}
+<section class="staff-home-page">
+  <div class="staff-home-hero">
+    <div class="staff-home-hero-copy">
+      <span class="eyebrow">MILAD CRAFT · STAFF CONTROL CENTER</span>
+      <span class="staff-home-kicker"><i></i> فضای کاری کارکنان</span>
+      <h1>سلام، <span>{{ current_account['display_name'] or current_account['username'] }}</span></h1>
+      <p>تمام ابزارهای نقش تو در یک جا جمع شده‌اند. بخشی را انتخاب کن تا مستقیم وارد صفحه اختصاصی آن شوی.</p>
+      <div class="staff-home-hero-actions">
+        <span class="role-pill" style="--role-color:{{ role_colors[current_account['role']] }}">{{ role_label }}</span>
+        <a class="button button-quiet" href="{{ url_for('account_profile') }}">مشاهده پروفایل</a>
+      </div>
+    </div>
+    <div class="staff-home-art" style="--staff-cover:url('{{ site_images.get('hero_image','') }}')">
+      <div class="staff-home-art-grid"></div>
+      <div class="staff-home-art-label"><span>MILAD CRAFT</span><b>STAFF AREA</b><small>BUILD · SUPPORT · CREATE</small></div>
+      <div class="staff-home-art-cube staff-home-cube-one"></div><div class="staff-home-art-cube staff-home-cube-two"></div><div class="staff-home-art-cube staff-home-cube-three"></div>
+    </div>
+  </div>
+  <div class="staff-home-stats">
+    <article><span class="staff-stat-symbol">P</span><div><small>پروژه‌های ثبت‌شده</small><b>{{ projects|length }}</b></div></article>
+    <article><span class="staff-stat-symbol staff-stat-purple">T</span><div><small>تسک‌های قابل پیگیری</small><b>{{ my_tasks|length }}</b></div></article>
+    <article><span class="staff-stat-symbol staff-stat-orange">!</span><div><small>اخطارهای حساب من</small><b>{{ warnings|length }}</b></div></article>
+    <article><span class="staff-stat-symbol staff-stat-green">●</span><div><small>کارکنان آنلاین Minecraft</small><b>{{ online_count }}</b></div></article>
+  </div>
+  <div class="staff-home-section-heading"><div><span class="eyebrow">YOUR WORKSPACE</span><h2>ابزارهای داشبورد</h2><p>هر ابزار صفحه مستقل خودش را دارد؛ برای جابه‌جایی از دکمه بازگشت همان صفحه استفاده کن.</p></div><span class="staff-home-section-count">دسترسی بر اساس نقش</span></div>
+  <div class="staff-tool-grid">
+    <a class="staff-tool-card staff-tool-featured" href="{{ url_for('staff_dashboard',section='projects') }}"><span class="staff-tool-icon">P</span><span class="staff-tool-label">PROJECTS</span><h3>پروژه‌ها</h3><p>مشاهده پروژه‌ها، ظرفیت Builderها و ساخت پروژه در صورت داشتن دسترسی.</p><span class="staff-tool-link">ورود به پروژه‌ها <b>←</b></span><i class="staff-tool-card-glow"></i></a>
+    <a class="staff-tool-card" href="{{ url_for('staff_dashboard',section='tasks') }}"><span class="staff-tool-icon staff-icon-purple">T</span><span class="staff-tool-label">TASK TRACKER</span><h3>تسک‌ها</h3><p>پیگیری کارهای تخصیص‌یافته و به‌روزرسانی وضعیت انجام آن‌ها.</p><span class="staff-tool-link">مدیریت تسک‌ها <b>←</b></span></a>
+    <a class="staff-tool-card" href="{{ url_for('staff_dashboard',section='messenger') }}"><span class="staff-tool-icon staff-icon-cyan">M</span><span class="staff-tool-label">MILAD CHAT</span><h3>پیام‌رسان کارکنان</h3><p>ورود به گفت‌وگوی گروهی کارکنان و پیام‌های خصوصی.</p><span class="staff-tool-link">باز کردن پیام‌رسان <b>←</b></span></a>
+    <a class="staff-tool-card" href="{{ url_for('staff_dashboard',section='warnings') }}"><span class="staff-tool-icon staff-icon-orange">!</span><span class="staff-tool-label">STAFF SAFETY</span><h3>اخطارها</h3><p>مشاهده اخطارهای خود و ثبت اخطار برای نقش‌های مجاز.</p><span class="staff-tool-link">مشاهده اخطارها <b>←</b></span></a>
+    <a class="staff-tool-card" href="{{ url_for('staff_dashboard',section='activity') }}"><span class="staff-tool-icon staff-icon-green">A</span><span class="staff-tool-label">ACTIVITY LOG</span><h3>گزارش فعالیت</h3><p>مرور رویدادهای ثبت‌شده و تاریخچه فعالیت کارکنان.</p><span class="staff-tool-link">مشاهده گزارش‌ها <b>←</b></span></a>
+    {% if can_manage_staff %}<a class="staff-tool-card" href="{{ url_for('staff_dashboard',section='staff-accounts') }}"><span class="staff-tool-icon staff-icon-red">U</span><span class="staff-tool-label">TEAM ACCESS</span><h3>حساب‌ها و نقش‌ها</h3><p>ارتقای بازیکنان ثبت‌نام‌شده و مدیریت سطح دسترسی کارکنان.</p><span class="staff-tool-link">مدیریت اعضا <b>←</b></span></a>{% endif %}
+    {% if can_manage_content %}<a class="staff-tool-card" href="{{ url_for('staff_dashboard',section='news-management') }}"><span class="staff-tool-icon staff-icon-orange">N</span><span class="staff-tool-label">NEWSROOM</span><h3>مدیریت اخبار</h3><p>ساخت، ویرایش و مدیریت خبرهای منتشرشده در سایت.</p><span class="staff-tool-link">ورود به اخبار <b>←</b></span></a>
+    <a class="staff-tool-card" href="{{ url_for('staff_dashboard',section='academy-content') }}"><span class="staff-tool-icon staff-icon-purple">B</span><span class="staff-tool-label">ACADEMY CMS</span><h3>مرکز آموزش و بلاگ</h3><p>مدیریت مقاله‌ها، برچسب‌ها، دیدگاه‌ها و پرسش‌های کاربران.</p><span class="staff-tool-link">مدیریت بلاگ <b>←</b></span></a>
+    <a class="staff-tool-card" href="{{ url_for('staff_dashboard',section='site-settings') }}"><span class="staff-tool-icon staff-icon-cyan">S</span><span class="staff-tool-label">SITE DESIGN</span><h3>تصاویر سایت</h3><p>تنظیم تصاویر اصلی و ظاهر بخش‌های مختلف وب‌سایت.</p><span class="staff-tool-link">تنظیم تصاویر <b>←</b></span></a>{% endif %}
+  </div>
+  <div class="staff-home-footer"><span class="staff-home-footer-mark">MC</span><div><b>همه‌چیز آماده است؟</b><p>بعد از پایان کار می‌توانی از پروفایل به اطلاعات حساب برگردی.</p></div><a href="{{ url_for('account_profile') }}">بازگشت به پروفایل ←</a></div>
+</section>
+{% endblock %}
