@@ -342,13 +342,19 @@ def claim_project(project_id):
 def create_warning():
     target, reason = request.form.get("staff_username", "").strip(), request.form.get("reason", "").strip()
     evidence_url = request.form.get("evidence_url", "").strip()
+    if evidence_url and (not evidence_url.startswith(("https://", "http://")) or len(evidence_url) > 1500):
+        flash("لینک مدرک باید یک آدرس HTTP یا HTTPS معتبر باشد.", "error")
+        return redirect(url_for("dashboard"))
     with connect_db() as db:
-        if not db.execute("SELECT id FROM staff WHERE username=?", (target,)).fetchone() or not reason:
+        target_staff = db.execute("SELECT id,role FROM staff WHERE username=?", (target,)).fetchone()
+        actor_role = (session.get("role") or "").lower()
+        if not target_staff or not reason:
             flash("نام کاربری استف باید معتبر باشد و دلیل وارن را وارد کنید.", "error")
+        elif actor_role == "hbuilder" and target_staff["role"] != "builder":
+            abort(403)
         else:
-            target_staff = db.execute("SELECT id FROM staff WHERE username=?", (target,)).fetchone()
             db.execute("INSERT INTO warnings(staff_username,reason,evidence_url,issued_by) VALUES(?,?,?,?)",
-                       (target, reason, evidence_url, session["username"]))
+                       (target, reason[:3000], evidence_url, session["username"]))
             db.execute("INSERT INTO notifications(recipient_type,recipient_id,title,body,target_url) VALUES('staff',?,?,?,?)",
                        (target_staff["id"], "وارن جدید ثبت شد", reason[:500], url_for("staff_profile") + "#notifications"))
             flash("وارن ثبت شد.", "success")
