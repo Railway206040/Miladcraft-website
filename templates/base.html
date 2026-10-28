@@ -1,0 +1,51 @@
+<!doctype html>
+<html lang="fa" dir="rtl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#090d14">
+  <meta name="description" content="{% block description %}وب‌سایت رسمی سرور ماینکرفت MILAD CRAFT؛ رول‌پلی، اخبار، آموزش و پنل بازیکنان و کارکنان.{% endblock %}">
+  <title>{% block title %}MILAD CRAFT | سرور ماینکرفت{% endblock %}</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Vazirmatn:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+  {% block head %}{% endblock %}
+</head>
+<body>
+  <div class="ambient ambient-one"></div><div class="ambient ambient-two"></div>
+  <header class="site-header">
+    <a class="brand" href="{{ url_for('index') }}" aria-label="صفحه اصلی MILAD CRAFT">
+      <img src="{{ site_images.get('site_logo') or url_for('static', filename='logo.svg') }}" alt="" class="brand-mark">
+      <span class="brand-name">MILAD<span>CRAFT</span></span>
+    </a>
+    <button class="mobile-nav-toggle" type="button" aria-label="باز کردن منو" onclick="document.body.classList.toggle('nav-open')"><span></span><span></span><span></span></button>
+    <nav class="site-nav" aria-label="ناوبری اصلی">
+      <a href="{{ url_for('index') }}">خانه</a>
+      <a href="{{ url_for('news_page') }}">اخبار</a>
+      <a href="{{ url_for('academy') }}">مرکز آموزش</a>
+      <a href="{{ telegram_url }}" target="_blank" rel="noopener noreferrer">تلگرام</a>
+    </nav>
+    <div class="header-actions">
+      {% if current_account %}
+        {% if current_account['role'] != 'player' %}<a class="button button-quiet button-small" href="{{ url_for('staff_dashboard') }}">پنل کارکنان</a>{% endif %}
+        <a class="button button-primary button-small" href="{{ url_for('account_profile') }}">پروفایل</a>
+      {% else %}
+        <a class="button button-quiet button-small hide-mobile" href="{{ url_for('account_login') }}">ورود</a>
+        <a class="button button-primary button-small" href="{{ url_for('account_register') }}">ساخت حساب</a>
+      {% endif %}
+    </div>
+  </header>
+  {% with messages = get_flashed_messages(with_categories=true) %}
+    {% if messages %}<div class="flash-stack" aria-live="polite">{% for category,message in messages %}<div class="flash flash-{{ category }}"><span class="flash-dot"></span>{{ message }}</div>{% endfor %}</div>{% endif %}
+  {% endwith %}
+  <main class="page-shell">{% block content %}{% endblock %}</main>
+  <footer class="site-footer">
+    <a class="brand brand-footer" href="{{ url_for('index') }}"><img src="{{ site_images.get('site_logo') or url_for('static', filename='logo.svg') }}" alt="" class="brand-mark"><span class="brand-name">MILAD<span>CRAFT</span></span></a>
+    <p>یک جهان تازه، یک جامعه واقعی.</p>
+    <div class="footer-links"><a href="{{ url_for('news_page') }}">اخبار</a><a href="{{ url_for('academy') }}">آموزش</a><a href="{{ telegram_url }}" target="_blank" rel="noopener noreferrer">کانال تلگرام</a></div>
+    <small>© {{ 2026 }} MILAD CRAFT · تمامی حقوق محفوظ است.</small>
+  </footer>
+  {% block scripts %}{% endblock %}
+</body>
+</html>

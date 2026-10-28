@@ -1,489 +1,456 @@
-from datetime import timedelta
-import os
+from __future__ import annotations
+
 import base64
+import hashlib
+import hmac
+import json
+import os
+import re
+import secrets
 import sqlite3
+import time
+from datetime import timedelta
 from functools import wraps
 from pathlib import Path
+from urllib.error import URLError
 from urllib.request import Request, urlopen
-import json
-from flask import Flask, render_template, request, redirect, url_for, session, flash, jsonify, abort
-from werkzeug.security import generate_password_hash, check_password_hash
+
 import bleach
+from flask import Flask, abort, flash, g, jsonify, redirect, render_template, request, session, url_for
+from markupsafe import Markup
+from werkzeug.security import check_password_hash, generate_password_hash
 
 app = Flask(__name__)
 app.secret_key = os.environ.get("SECRET_KEY", "development-only-change-this-before-deploying")
-app.config.update(SESSION_COOKIE_HTTPONLY=True, SESSION_COOKIE_SAMESITE="Lax",
-                  SESSION_COOKIE_SECURE=os.environ.get("COOKIE_SECURE", "true").lower() == "true",
-                  PERMANENT_SESSION_LIFETIME=timedelta(days=120))
+app.config.update(
+    SESSION_COOKIE_HTTPONLY=True,
+    SESSION_COOKIE_SAMESITE="Lax",
+    SESSION_COOKIE_SECURE=os.environ.get("COOKIE_SECURE", "true").lower() == "true",
+    PERMANENT_SESSION_LIFETIME=timedelta(days=30),
+    MAX_CONTENT_LENGTH=10 * 1024 * 1024,
+)
+
+SERVER_ADDRESS = "miladcraft.seedloaf.gg"
+SERVER_VERSION = "1.21.11"
+TELEGRAM_URL = os.environ.get("TELEGRAM_URL", "https://t.me/Milad_craft")
 DATA_DIR = Path(os.environ.get("DATA_DIR", "data"))
 DATA_DIR.mkdir(parents=True, exist_ok=True)
 DB_PATH = Path(os.environ.get("DB_PATH", str(DATA_DIR / "miladcraft.db")))
-SERVER_ADDRESS = "miladcraft.seedloaf.gg"
-TELEGRAM_URL = os.environ.get("TELEGRAM_URL", "https://t.me/Milad_craft")
-ROLES = {"builder": "Builder", "hbuilder": "H-Builder", "developer": "Developer", "owner": "Owner"}
-ROLE_PERMISSIONS = {
-    "builder": {"projects_view", "projects_claim"},
-    "hbuilder": {"projects_view", "projects_create", "warnings_create"},
-    "developer": {"projects_view", "projects_claim", "projects_create", "warnings_create", "full_access", "blog_manage"},
-    "owner": {"projects_view", "projects_claim", "projects_create", "warnings_create", "full_access", "blog_manage"},
+DB_PATH.parent.mkdir(parents=True, exist_ok=True)
+
+ROLE_LABELS = {
+    "player": "بازیکن",
+    "builder": "Builder",
+    "hbuilder": "H-Builder",
+    "helper": "Helper",
+    "moderator": "Moderator",
+    "admin": "Admin",
+    "manager": "Manager",
+    "developer": "Developer",
+    "owner": "Owner",
 }
+ROLE_COLORS = {
+    "player": "#94a3b8",
+    "builder": "#22d3c5",
+    "hbuilder": "#a78bfa",
+    "helper": "#facc15",
+    "moderator": "#fb923c",
+    "admin": "#dc2626",
+    "manager": "#60a5fa",
+    "developer": "#a1a1aa",
+    "owner": "#fca5a5",
+}
+STAFF_ROLES = ("builder", "hbuilder", "helper", "moderator", "admin", "manager", "developer", "owner")
+MASTER_ROLES = {"developer", "owner"}
+CONTENT_ROLES = {"developer", "owner", "admin", "manager"}
+PROJECT_MANAGERS = {"hbuilder", "manager", "admin", "developer", "owner"}
+WARNING_ROLES = {"hbuilder", "manager", "admin", "developer", "owner"}
 BLOG_TAGS = ["p", "br", "strong", "b", "em", "i", "u", "h2", "h3", "h4", "ul", "ol", "li", "blockquote", "a", "img", "hr", "code", "pre"]
 BLOG_ATTRS = {"a": ["href", "title", "target", "rel"], "img": ["src", "alt", "title", "width"]}
 BLOG_PROTOCOLS = ["http", "https", "mailto"]
 
+IMAGE_DEFAULTS = {
+    "site_logo": "",
+    "hero_image": "https://images.unsplash.com/photo-1542751371-adc38448a05e?auto=format&fit=crop&w=1800&q=85",
+    "about_image": "https://images.unsplash.com/photo-1511512578047-dfb367046420?auto=format&fit=crop&w=1000&q=85",
+    "roleplay_image": "https://images.unsplash.com/photo-1493711662062-fa5416f8d4db?auto=format&fit=crop&w=1100&q=85",
+    "survival_image": "https://images.unsplash.com/photo-1580234811497-9df7fd2f357e?auto=format&fit=crop&w=1100&q=85",
+    "gallery_image_1": "https://images.unsplash.com/photo-1511512578047-dfb367046420?auto=format&fit=crop&w=1200&q=85",
+    "gallery_image_2": "https://images.unsplash.com/photo-1542751371-adc38448a05e?auto=format&fit=crop&w=800&q=85",
+    "gallery_image_3": "https://images.unsplash.com/photo-1493711662062-fa5416f8d4db?auto=format&fit=crop&w=800&q=85",
+}
+
 def connect_db():
-    db = sqlite3.connect(DB_PATH)
+    db = sqlite3.connect(DB_PATH, timeout=15)
     db.row_factory = sqlite3.Row
     db.execute("PRAGMA foreign_keys=ON")
+    db.execute("PRAGMA busy_timeout=15000")
     return db
+
+def _columns(db, table):
+    return {row["name"] for row in db.execute(f"PRAGMA table_info({table})").fetchall()}
+
+def _add_column(db, table, name, definition):
+    if name not in _columns(db, table):
+        db.execute(f"ALTER TABLE {table} ADD COLUMN {name} {definition}")
 
 def init_db():
     with connect_db() as db:
+        notification_table = db.execute("SELECT sql FROM sqlite_master WHERE type='table' AND name='notifications'").fetchone()
+        if notification_table and "CHECK(recipient_type IN ('member','staff'))" in (notification_table["sql"] or "") and not db.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name='legacy_notifications'").fetchone():
+            db.execute("ALTER TABLE notifications RENAME TO legacy_notifications")
+        if db.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name='post_comments'").fetchone():
+            if "account_id" not in _columns(db, "post_comments") and not db.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name='legacy_post_comments'").fetchone():
+                db.execute("ALTER TABLE post_comments RENAME TO legacy_post_comments")
+        if db.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name='post_feedback'").fetchone():
+            if "account_id" not in _columns(db, "post_feedback") and not db.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name='legacy_post_feedback'").fetchone():
+                db.execute("ALTER TABLE post_feedback RENAME TO legacy_post_feedback")
         db.executescript("""
-        CREATE TABLE IF NOT EXISTS staff (
-          id INTEGER PRIMARY KEY AUTOINCREMENT, username TEXT UNIQUE NOT NULL,
-          password_hash TEXT NOT NULL, role TEXT NOT NULL CHECK(role IN ('builder','hbuilder','developer','owner')),
-          created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP);
-        CREATE TABLE IF NOT EXISTS site_settings (
-          setting_key TEXT PRIMARY KEY, setting_value TEXT NOT NULL DEFAULT '');
+        CREATE TABLE IF NOT EXISTS accounts (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          username TEXT NOT NULL COLLATE NOCASE UNIQUE,
+          password_hash TEXT NOT NULL,
+          role TEXT NOT NULL DEFAULT 'player',
+          display_name TEXT NOT NULL DEFAULT '',
+          avatar_url TEXT NOT NULL DEFAULT '',
+          bio TEXT NOT NULL DEFAULT '',
+          minecraft_username TEXT NOT NULL DEFAULT '',
+          email TEXT NOT NULL DEFAULT '',
+          telegram TEXT NOT NULL DEFAULT '',
+          discord TEXT NOT NULL DEFAULT '',
+          age INTEGER,
+          created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+          last_login TEXT,
+          is_active INTEGER NOT NULL DEFAULT 1
+        );
+        CREATE TABLE IF NOT EXISTS site_settings (setting_key TEXT PRIMARY KEY, setting_value TEXT NOT NULL DEFAULT '');
         CREATE TABLE IF NOT EXISTS notifications (
-          id INTEGER PRIMARY KEY AUTOINCREMENT, recipient_type TEXT NOT NULL CHECK(recipient_type IN ('member','staff')),
-          recipient_id INTEGER NOT NULL, title TEXT NOT NULL, body TEXT NOT NULL DEFAULT '',
-          target_url TEXT NOT NULL DEFAULT '/', is_read INTEGER NOT NULL DEFAULT 0,
-          created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP);
-        CREATE INDEX IF NOT EXISTS idx_notifications_recipient ON notifications(recipient_type,recipient_id,is_read,created_at);
+          id INTEGER PRIMARY KEY AUTOINCREMENT, recipient_type TEXT NOT NULL DEFAULT 'account', recipient_id INTEGER NOT NULL,
+          title TEXT NOT NULL, body TEXT NOT NULL DEFAULT '', target_url TEXT NOT NULL DEFAULT '/',
+          is_read INTEGER NOT NULL DEFAULT 0, created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+        );
         CREATE TABLE IF NOT EXISTS news (
           id INTEGER PRIMARY KEY AUTOINCREMENT, title TEXT NOT NULL, summary TEXT NOT NULL DEFAULT '',
           content TEXT NOT NULL, cover_url TEXT NOT NULL DEFAULT '', author TEXT NOT NULL,
-          published INTEGER NOT NULL DEFAULT 1, created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP);
-
+          published INTEGER NOT NULL DEFAULT 1, created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+        );
         CREATE TABLE IF NOT EXISTS projects (
           id INTEGER PRIMARY KEY AUTOINCREMENT, title TEXT NOT NULL, description TEXT NOT NULL,
           required_builders INTEGER NOT NULL DEFAULT 1, status TEXT NOT NULL DEFAULT 'Open',
-          created_by TEXT NOT NULL, claimed_by TEXT, created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP);
+          created_by TEXT NOT NULL, claimed_by TEXT, created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+        );
+        CREATE TABLE IF NOT EXISTS project_members (
+          project_id INTEGER NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+          account_id INTEGER NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,
+          joined_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+          PRIMARY KEY(project_id, account_id)
+        );
+        CREATE TABLE IF NOT EXISTS tasks (
+          id INTEGER PRIMARY KEY AUTOINCREMENT, project_id INTEGER NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+          title TEXT NOT NULL, description TEXT NOT NULL DEFAULT '', assigned_to INTEGER REFERENCES accounts(id) ON DELETE SET NULL,
+          status TEXT NOT NULL DEFAULT 'todo', created_by INTEGER REFERENCES accounts(id) ON DELETE SET NULL,
+          created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP, updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+        );
         CREATE TABLE IF NOT EXISTS warnings (
           id INTEGER PRIMARY KEY AUTOINCREMENT, staff_username TEXT NOT NULL, reason TEXT NOT NULL,
-          evidence_url TEXT DEFAULT '', issued_by TEXT NOT NULL, created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP);
+          evidence_url TEXT NOT NULL DEFAULT '', evidence_data TEXT NOT NULL DEFAULT '',
+          issued_by TEXT NOT NULL, created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+        );
+        CREATE TABLE IF NOT EXISTS staff_activity (
+          id INTEGER PRIMARY KEY AUTOINCREMENT, account_id INTEGER REFERENCES accounts(id) ON DELETE SET NULL,
+          username TEXT NOT NULL, event_type TEXT NOT NULL, details TEXT NOT NULL DEFAULT '',
+          created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+        );
+        CREATE TABLE IF NOT EXISTS staff_presence (
+          username TEXT PRIMARY KEY COLLATE NOCASE, is_online INTEGER NOT NULL DEFAULT 0,
+          joined_at TEXT, last_seen TEXT, total_minutes INTEGER NOT NULL DEFAULT 0
+        );
+        CREATE TABLE IF NOT EXISTS conversations (
+          id INTEGER PRIMARY KEY AUTOINCREMENT, kind TEXT NOT NULL CHECK(kind IN ('group','private')),
+          title TEXT NOT NULL, created_by INTEGER REFERENCES accounts(id) ON DELETE SET NULL,
+          created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+        );
+        CREATE TABLE IF NOT EXISTS conversation_members (
+          conversation_id INTEGER NOT NULL REFERENCES conversations(id) ON DELETE CASCADE,
+          account_id INTEGER NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,
+          PRIMARY KEY(conversation_id, account_id)
+        );
+        CREATE TABLE IF NOT EXISTS messages (
+          id INTEGER PRIMARY KEY AUTOINCREMENT, conversation_id INTEGER NOT NULL REFERENCES conversations(id) ON DELETE CASCADE,
+          sender_id INTEGER REFERENCES accounts(id) ON DELETE SET NULL, body TEXT NOT NULL,
+          created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+        );
         CREATE TABLE IF NOT EXISTS posts (
-          id INTEGER PRIMARY KEY AUTOINCREMENT, title TEXT NOT NULL, summary TEXT DEFAULT '',
-          content TEXT NOT NULL, cover_url TEXT DEFAULT '', author TEXT NOT NULL,
+          id INTEGER PRIMARY KEY AUTOINCREMENT, title TEXT NOT NULL, summary TEXT NOT NULL DEFAULT '',
+          content TEXT NOT NULL, cover_url TEXT NOT NULL DEFAULT '', author TEXT NOT NULL,
           published INTEGER NOT NULL DEFAULT 1, created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
-          updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP);
-        CREATE TABLE IF NOT EXISTS members (
-          id INTEGER PRIMARY KEY AUTOINCREMENT, username TEXT UNIQUE NOT NULL,
-          password_hash TEXT NOT NULL, display_name TEXT NOT NULL DEFAULT '',
-          avatar_url TEXT NOT NULL DEFAULT '', created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP);
+          updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+        );
         CREATE TABLE IF NOT EXISTS academy_tags (
-          id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT UNIQUE NOT NULL,
-          slug TEXT UNIQUE NOT NULL, created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP);
+          id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT UNIQUE NOT NULL, slug TEXT UNIQUE NOT NULL,
+          created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+        );
         CREATE TABLE IF NOT EXISTS post_tags (
           post_id INTEGER NOT NULL REFERENCES posts(id) ON DELETE CASCADE,
           tag_id INTEGER NOT NULL REFERENCES academy_tags(id) ON DELETE CASCADE,
-          PRIMARY KEY(post_id, tag_id));
+          PRIMARY KEY(post_id, tag_id)
+        );
         CREATE TABLE IF NOT EXISTS post_comments (
           id INTEGER PRIMARY KEY AUTOINCREMENT, post_id INTEGER NOT NULL REFERENCES posts(id) ON DELETE CASCADE,
-          member_id INTEGER NOT NULL REFERENCES members(id) ON DELETE CASCADE,
-          body TEXT NOT NULL, reply_text TEXT NOT NULL DEFAULT '', replied_by TEXT NOT NULL DEFAULT '',
-          replied_at TEXT, created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP);
+          account_id INTEGER NOT NULL REFERENCES accounts(id) ON DELETE CASCADE, body TEXT NOT NULL,
+          reply_text TEXT NOT NULL DEFAULT '', replied_by TEXT NOT NULL DEFAULT '', replied_at TEXT,
+          created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+        );
         CREATE TABLE IF NOT EXISTS post_feedback (
           post_id INTEGER NOT NULL REFERENCES posts(id) ON DELETE CASCADE,
-          member_id INTEGER NOT NULL REFERENCES members(id) ON DELETE CASCADE,
-          vote INTEGER NOT NULL CHECK(vote IN (-1,1)),
-          created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
-          PRIMARY KEY(post_id, member_id));
+          account_id INTEGER NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,
+          vote INTEGER NOT NULL CHECK(vote IN (-1,1)), created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+          PRIMARY KEY(post_id, account_id)
+        );
+        CREATE TABLE IF NOT EXISTS app_meta (meta_key TEXT PRIMARY KEY, meta_value TEXT NOT NULL);
+        CREATE INDEX IF NOT EXISTS idx_projects_status ON projects(status, id DESC);
+        CREATE INDEX IF NOT EXISTS idx_tasks_assignee ON tasks(assigned_to, status);
+        CREATE INDEX IF NOT EXISTS idx_activity_account ON staff_activity(account_id, id DESC);
+        CREATE INDEX IF NOT EXISTS idx_messages_conversation ON messages(conversation_id, id DESC);
+        CREATE INDEX IF NOT EXISTS idx_notifications_account ON notifications(recipient_id, is_read, id DESC);
         """)
-        image_defaults = {
-            "site_logo": "",
-            "hero_image": "https://images.unsplash.com/photo-1542751371-adc38448a05e?auto=format&fit=crop&w=1800&q=85",
-            "about_image": "https://images.unsplash.com/photo-1511512578047-dfb367046420?auto=format&fit=crop&w=1000&q=85",
-            "roleplay_image": "https://images.unsplash.com/photo-1493711662062-fa5416f8d4db?auto=format&fit=crop&w=1100&q=85",
-            "survival_image": "https://images.unsplash.com/photo-1580234811497-9df7fd2f357e?auto=format&fit=crop&w=1100&q=85",
-            "gallery_image_1": "https://images.unsplash.com/photo-1511512578047-dfb367046420?auto=format&fit=crop&w=1200&q=85",
-            "gallery_image_2": "https://images.unsplash.com/photo-1542751371-adc38448a05e?auto=format&fit=crop&w=800&q=85",
-            "gallery_image_3": "https://images.unsplash.com/photo-1493711662062-fa5416f8d4db?auto=format&fit=crop&w=800&q=85"
-        }
-        for key, value in image_defaults.items():
+        _add_column(db, "warnings", "evidence_data", "TEXT NOT NULL DEFAULT ''")
+        _add_column(db, "notifications", "recipient_type", "TEXT NOT NULL DEFAULT 'account'")
+        _add_column(db, "accounts", "bio", "TEXT NOT NULL DEFAULT ''")
+        # Import the old split account tables only once; later deployments must preserve role changes.
+        if not db.execute("SELECT 1 FROM app_meta WHERE meta_key='migration:legacy_accounts_v1'").fetchone():
+            if db.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name='members'").fetchone():
+                old_cols = _columns(db, "members")
+                if {"username", "password_hash"}.issubset(old_cols):
+                    for row in db.execute("SELECT * FROM members").fetchall():
+                        display = row["display_name"] if "display_name" in old_cols else row["username"]
+                        avatar = row["avatar_url"] if "avatar_url" in old_cols else ""
+                        created = row["created_at"] if "created_at" in old_cols else None
+                        db.execute("""INSERT OR IGNORE INTO accounts(username,password_hash,role,display_name,avatar_url,created_at)
+                            VALUES(?,?,'player',?,?,COALESCE(?,CURRENT_TIMESTAMP))""",
+                            (row["username"], row["password_hash"], display or row["username"], avatar or "", created))
+            if db.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name='staff'").fetchone():
+                old_cols = _columns(db, "staff")
+                if {"username", "password_hash", "role"}.issubset(old_cols):
+                    for row in db.execute("SELECT * FROM staff").fetchall():
+                        display = row["display_name"] if "display_name" in old_cols else row["username"]
+                        avatar = row["avatar_url"] if "avatar_url" in old_cols else ""
+                        created = row["created_at"] if "created_at" in old_cols else None
+                        role = row["role"] if row["role"] in STAFF_ROLES else "builder"
+                        db.execute("""INSERT INTO accounts(username,password_hash,role,display_name,avatar_url,created_at)
+                            VALUES(?,?,?,?,?,COALESCE(?,CURRENT_TIMESTAMP))
+                            ON CONFLICT(username) DO UPDATE SET password_hash=excluded.password_hash,role=excluded.role,
+                            display_name=CASE WHEN excluded.display_name='' THEN accounts.display_name ELSE excluded.display_name END,
+                            avatar_url=CASE WHEN excluded.avatar_url='' THEN accounts.avatar_url ELSE excluded.avatar_url END""",
+                            (row["username"], row["password_hash"], role, display or row["username"], avatar or "", created))
+
+            db.execute("INSERT INTO app_meta(meta_key,meta_value) VALUES('migration:legacy_accounts_v1','done')")
+        if db.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name='legacy_post_comments'").fetchone():
+            for old in db.execute("SELECT * FROM legacy_post_comments").fetchall():
+                member = db.execute("SELECT username FROM members WHERE id=?", (old["member_id"],)).fetchone() if db.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name='members'").fetchone() else None
+                account = db.execute("SELECT id FROM accounts WHERE username=? COLLATE NOCASE", (member["username"],)).fetchone() if member else None
+                if account:
+                    db.execute("INSERT OR IGNORE INTO post_comments(id,post_id,account_id,body,reply_text,replied_by,replied_at,created_at) VALUES(?,?,?,?,?,?,?,?)",
+                        (old["id"],old["post_id"],account["id"],old["body"],old["reply_text"],old["replied_by"],old["replied_at"],old["created_at"]))
+        if db.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name='legacy_post_feedback'").fetchone():
+            for old in db.execute("SELECT * FROM legacy_post_feedback").fetchall():
+                member = db.execute("SELECT username FROM members WHERE id=?", (old["member_id"],)).fetchone() if db.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name='members'").fetchone() else None
+                account = db.execute("SELECT id FROM accounts WHERE username=? COLLATE NOCASE", (member["username"],)).fetchone() if member else None
+                if account:
+                    db.execute("INSERT OR IGNORE INTO post_feedback(post_id,account_id,vote,created_at) VALUES(?,?,?,?)",
+                        (old["post_id"],account["id"],old["vote"],old["created_at"]))
+        if db.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name='legacy_notifications'").fetchone():
+            for old in db.execute("SELECT * FROM legacy_notifications").fetchall():
+                if old["recipient_type"] in ("member","staff"):
+                    legacy_table = "members" if old["recipient_type"] == "member" else "staff"
+                    if db.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name=?", (legacy_table,)).fetchone():
+                        legacy_account = db.execute("SELECT username FROM " + legacy_table + " WHERE id=?", (old["recipient_id"],)).fetchone()
+                        target_account = db.execute("SELECT id FROM accounts WHERE username=? COLLATE NOCASE", (legacy_account["username"],)).fetchone() if legacy_account else None
+                        if target_account:
+                            db.execute("""INSERT OR IGNORE INTO notifications(id,recipient_type,recipient_id,title,body,target_url,is_read,created_at)
+                                VALUES(?, 'account', ?, ?, ?, ?, ?, ?)""",
+                                (old["id"],target_account["id"],old["title"],old["body"],old["target_url"],old["is_read"],old["created_at"]))
+        # Migrate old project claims to the new many-builder membership table.
+        if "claimed_by" in _columns(db, "projects"):
+            for row in db.execute("SELECT id,claimed_by FROM projects WHERE claimed_by IS NOT NULL AND claimed_by<>''").fetchall():
+                account = db.execute("SELECT id FROM accounts WHERE username=? COLLATE NOCASE", (row["claimed_by"],)).fetchone()
+                if account:
+                    db.execute("INSERT OR IGNORE INTO project_members(project_id,account_id) VALUES(?,?)", (row["id"], account["id"]))
+        for key, value in IMAGE_DEFAULTS.items():
             db.execute("INSERT OR IGNORE INTO site_settings(setting_key,setting_value) VALUES(?,?)", (key, value))
-        staff_columns = {row["name"] for row in db.execute("PRAGMA table_info(staff)")}
-        if "avatar_url" not in staff_columns: db.execute("ALTER TABLE staff ADD COLUMN avatar_url TEXT NOT NULL DEFAULT ''")
-        if "display_name" not in staff_columns: db.execute("ALTER TABLE staff ADD COLUMN display_name TEXT NOT NULL DEFAULT ''")
-        # Apply bootstrap credentials once per configured username/password pair.
-        # The marker prevents this from overwriting a user's later password change on every request.
-        db.execute("CREATE TABLE IF NOT EXISTS app_meta (meta_key TEXT PRIMARY KEY, meta_value TEXT NOT NULL)")
+        group = db.execute("SELECT id FROM conversations WHERE kind='group' AND title='گروه کارکنان' LIMIT 1").fetchone()
+        if not group:
+            group_id = db.execute("INSERT INTO conversations(kind,title) VALUES('group','گروه کارکنان')").lastrowid
+        else:
+            group_id = group["id"]
+        # Bootstrap an initial Owner only when configured; do not overwrite an existing account password.
         username = os.environ.get("BOOTSTRAP_OWNER_USERNAME", "").strip()
         password = os.environ.get("BOOTSTRAP_OWNER_PASSWORD", "")
-        if username and password:
-            import hashlib
-            bootstrap_marker = hashlib.sha256((username + "\\0" + password).encode("utf-8")).hexdigest()
-            marker_key = "bootstrap_owner:" + username
-            previous_marker = db.execute("SELECT meta_value FROM app_meta WHERE meta_key=?", (marker_key,)).fetchone()
-            if not previous_marker or previous_marker["meta_value"] != bootstrap_marker:
-                existing = db.execute("SELECT id FROM staff WHERE username=?", (username,)).fetchone()
-                if existing:
-                    db.execute("UPDATE staff SET password_hash=?, role='developer' WHERE id=?",
-                               (generate_password_hash(password), existing["id"]))
-                else:
-                    db.execute("INSERT INTO staff(username,password_hash,role) VALUES(?,?,?)",
-                               (username, generate_password_hash(password), "developer"))
-                db.execute("INSERT INTO app_meta(meta_key,meta_value) VALUES(?,?) ON CONFLICT(meta_key) DO UPDATE SET meta_value=excluded.meta_value",
-                           (marker_key, bootstrap_marker))
+        if username and password and len(password) >= 10:
+            found = db.execute("SELECT id FROM accounts WHERE username=? COLLATE NOCASE", (username,)).fetchone()
+            if not found:
+                db.execute("INSERT INTO accounts(username,password_hash,role,display_name) VALUES(?,?, 'owner',?)",
+                           (username, generate_password_hash(password), username))
+            elif found:
+                db.execute("UPDATE accounts SET role='owner' WHERE id=?", (found["id"],))
+        group = db.execute("SELECT id FROM conversations WHERE kind='group' AND title='گروه کارکنان' LIMIT 1").fetchone()
+        if group:
+            for row in db.execute("SELECT id FROM accounts WHERE role<>'player'").fetchall():
+                db.execute("INSERT OR IGNORE INTO conversation_members(conversation_id,account_id) VALUES(?,?)", (group["id"],row["id"]))
 
-def permission_required(permission):
+def log_activity(account, event_type, details=""):
+    if not account:
+        return
+    with connect_db() as db:
+        db.execute("INSERT INTO staff_activity(account_id,username,event_type,details) VALUES(?,?,?,?)",
+                   (account["id"], account["username"], event_type, str(details)[:1000]))
+
+def safe_next(value, fallback):
+    if value and value.startswith("/") and not value.startswith("//") and "\\" not in value:
+        return value
+    return fallback
+
+def account_required(view):
+    @wraps(view)
+    def wrapped(*args, **kwargs):
+        if not getattr(g, "account", None):
+            flash("برای ادامه ابتدا وارد حساب شوید.", "error")
+            return redirect(url_for("account_login", next=request.path))
+        return view(*args, **kwargs)
+    return wrapped
+
+def staff_required(view):
+    @wraps(view)
+    def wrapped(*args, **kwargs):
+        account = getattr(g, "account", None)
+        if not account:
+            flash("ابتدا وارد حساب شوید.", "error")
+            return redirect(url_for("account_login", next=request.path))
+        if account["role"] == "player":
+            flash("این بخش مخصوص کارکنان سرور است.", "error")
+            return redirect(url_for("account_profile"))
+        return view(*args, **kwargs)
+    return wrapped
+
+def roles_required(*roles):
     def decorator(view):
         @wraps(view)
         def wrapped(*args, **kwargs):
-            if not session.get("staff_id"):
-                return redirect(url_for("login"))
-            if permission not in ROLE_PERMISSIONS.get(session.get("role"), set()):
-                flash("شما اجازه دسترسی به این بخش را ندارید.", "error")
-                return redirect(url_for("dashboard"))
+            account = getattr(g, "account", None)
+            if not account:
+                flash("ابتدا وارد حساب شوید.", "error")
+                return redirect(url_for("account_login", next=request.path))
+            if account["role"] not in roles:
+                abort(403)
             return view(*args, **kwargs)
         return wrapped
     return decorator
 
+def clean_text(value, limit=3000):
+    return bleach.clean((value or "").strip(), tags=[], strip=True)[:limit]
+
 @app.before_request
-def prepare_database():
-    init_db()
+def prepare_request():
+    g.account = None
+    account_id = session.get("account_id")
+    if account_id:
+        with connect_db() as db:
+            g.account = db.execute("SELECT * FROM accounts WHERE id=? AND is_active=1", (account_id,)).fetchone()
+        if not g.account:
+            session.clear()
+    if request.method == "POST" and request.endpoint != "minecraft_event" and not app.config.get("TESTING"):
+        token = session.get("_csrf_token", "")
+        supplied = request.form.get("_csrf_token", "")
+        if not token or not supplied or not hmac.compare_digest(token, supplied):
+            abort(400, description="درخواست معتبر نیست؛ صفحه را تازه‌سازی کنید و دوباره تلاش کنید.")
 
 @app.after_request
 def security_headers(response):
     response.headers["X-Content-Type-Options"] = "nosniff"
     response.headers["X-Frame-Options"] = "DENY"
     response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
-    response.headers["Content-Security-Policy"] = "default-src 'self' https://fonts.googleapis.com https://fonts.gstatic.com https://images.unsplash.com https://api.mcsrvstat.us; img-src 'self' data: https:; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; script-src 'self' 'unsafe-inline'; connect-src 'self' https://api.mcsrvstat.us"
+    response.headers["Permissions-Policy"] = "camera=(), microphone=(), geolocation=()"
+    response.headers["Content-Security-Policy"] = "default-src 'self'; img-src 'self' data: https:; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; script-src 'self' 'unsafe-inline'; connect-src 'self' https://api.mcsrvstat.us"
     return response
 
 @app.context_processor
 def common_template_values():
+    if "_csrf_token" not in session:
+        session["_csrf_token"] = secrets.token_urlsafe(32)
     with connect_db() as db:
         site_images = {row["setting_key"]: row["setting_value"] for row in db.execute("SELECT setting_key,setting_value FROM site_settings")}
-    return {"server_address": SERVER_ADDRESS, "telegram_url": TELEGRAM_URL, "site_images": site_images}
+    account = getattr(g, "account", None)
+    role = account["role"] if account else "player"
+    return {
+        "server_address": SERVER_ADDRESS, "server_version": SERVER_VERSION, "telegram_url": TELEGRAM_URL,
+        "site_images": site_images, "current_account": account, "role_labels": ROLE_LABELS,
+        "role_colors": ROLE_COLORS, "current_role_label": ROLE_LABELS.get(role, role),
+        "csrf_token": lambda: session.get("_csrf_token", ""),
+        "csrf_field": lambda: Markup('<input type="hidden" name="_csrf_token" value="%s">' % session.get("_csrf_token", "")),
+    }
 
 @app.route("/")
 def index():
     with connect_db() as db:
-        posts = db.execute("SELECT id,title,summary,cover_url,author,created_at FROM posts WHERE published=1 ORDER BY id DESC LIMIT 3").fetchall()
-        news_items = db.execute("SELECT id,title,summary,cover_url,author,created_at FROM news WHERE published=1 ORDER BY id DESC LIMIT 3").fetchall()
-        site_images = {row["setting_key"]: row["setting_value"] for row in db.execute("SELECT setting_key,setting_value FROM site_settings")}
-    return render_template("index.html", posts=posts, news_items=news_items, site_images=site_images,
-                           server_address=SERVER_ADDRESS, telegram_url=TELEGRAM_URL)
+        latest_news = db.execute("SELECT * FROM news WHERE published=1 ORDER BY id DESC LIMIT 3").fetchall()
+        latest_posts = db.execute("SELECT * FROM posts WHERE published=1 ORDER BY id DESC LIMIT 3").fetchall()
+    return render_template("index.html", latest_news=latest_news, latest_posts=latest_posts)
 
 @app.route("/robots.txt")
 def robots_txt():
-    body = "User-agent: *\nAllow: /\nDisallow: /staff\nDisallow: /staff/\nSitemap: " + request.url_root.rstrip("/") + "/sitemap.xml\n"
-    return app.response_class(body, mimetype="text/plain")
+    return "User-agent: *\nAllow: /\nDisallow: /staff\nDisallow: /account/profile\nSitemap: " + request.url_root.rstrip("/") + "/sitemap.xml\n", 200, {"Content-Type": "text/plain; charset=utf-8"}
 
 @app.route("/sitemap.xml")
 def sitemap_xml():
-    base = request.url_root.rstrip("/")
-    urls = [base + "/", base + url_for("academy"), base + url_for("news_page")]
+    paths = [url_for("index"), url_for("news_page"), url_for("academy")]
     with connect_db() as db:
-        rows = db.execute("SELECT id FROM posts WHERE published=1 ORDER BY id DESC").fetchall()
-        news_rows = db.execute("SELECT id FROM news WHERE published=1 ORDER BY id DESC").fetchall()
-    urls.extend(base + url_for("blog_post", post_id=row["id"]) for row in rows)
-    urls.extend(base + url_for("news_detail", news_id=row["id"]) for row in news_rows)
+        paths += [url_for("news_detail", news_id=r["id"]) for r in db.execute("SELECT id FROM news WHERE published=1")]
+        paths += [url_for("blog_post", post_id=r["id"]) for r in db.execute("SELECT id FROM posts WHERE published=1")]
     from xml.sax.saxutils import escape
-    entries = "".join("<url><loc>" + escape(url) + "</loc></url>" for url in urls)
-    xml = '<?xml version="1.0" encoding="UTF-8"?><urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">' + entries + "</urlset>"
-    return app.response_class(xml, mimetype="application/xml")
+    body = '<?xml version="1.0" encoding="UTF-8"?><urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">'
+    body += "".join("<url><loc>" + escape(request.url_root.rstrip("/") + path) + "</loc></url>" for path in paths)
+    body += "</urlset>"
+    return body, 200, {"Content-Type": "application/xml; charset=utf-8"}
 
 @app.route("/api/server-status")
 def server_status():
     try:
-        req = Request("https://api.mcsrvstat.us/3/" + SERVER_ADDRESS, headers={"User-Agent": "MiladCraft-Website/1.0"})
-        with urlopen(req, timeout=4) as response:
+        req = Request("https://api.mcsrvstat.us/3/" + SERVER_ADDRESS, headers={"User-Agent": "MiladCraft-Website/2.0"})
+        with urlopen(req, timeout=3.5) as response:
             data = json.loads(response.read().decode("utf-8"))
         online = bool(data.get("online"))
         return jsonify({"online": online, "host": SERVER_ADDRESS,
                         "players_online": data.get("players", {}).get("online", 0) if online else 0,
                         "players_max": data.get("players", {}).get("max", 0) if online else 0,
                         "version": data.get("version", "") if online else ""})
-    except Exception:
-        return jsonify({"online": None, "host": SERVER_ADDRESS, "players_online": 0, "players_max": 0, "version": "", "error": "status_unavailable"}), 200
+    except (URLError, TimeoutError, ValueError, OSError):
+        return jsonify({"online": None, "host": SERVER_ADDRESS, "players_online": 0, "players_max": 0, "version": "", "error": "status_unavailable"})
 
-@app.route("/staff/login", methods=["GET", "POST"])
-def login():
-    return redirect(url_for("account_login", next=url_for("dashboard")))
-
-@app.route("/staff/change-password", methods=["POST"])
-def change_password():
-    if not session.get("staff_id"):
-        return redirect(url_for("login"))
-    current_password = request.form.get("current_password", "")
-    new_password = request.form.get("new_password", "")
-    confirm_password = request.form.get("confirm_password", "")
-    if len(new_password) < 10:
-        flash("رمز عبور جدید باید حداقل ۱۰ کاراکتر باشد.", "error")
-        return redirect(url_for("dashboard"))
-    if new_password != confirm_password:
-        flash("تکرار رمز عبور با رمز جدید مطابقت ندارد.", "error")
-        return redirect(url_for("dashboard"))
-    with connect_db() as db:
-        user = db.execute("SELECT id,password_hash FROM staff WHERE id=?", (session["staff_id"],)).fetchone()
-        if not user or not check_password_hash(user["password_hash"], current_password):
-            flash("رمز عبور فعلی صحیح نیست.", "error")
-            return redirect(url_for("dashboard"))
-        db.execute("UPDATE staff SET password_hash=? WHERE id=?",
-                   (generate_password_hash(new_password), session["staff_id"]))
-    session.clear()
-    flash("رمز عبور با موفقیت تغییر کرد. لطفاً با رمز جدید وارد شوید.", "success")
-    return redirect(url_for("login"))
-
-@app.route("/staff/logout", methods=["POST"])
-def logout():
-    session.clear()
-    return redirect(url_for("index"))
-
-@app.route("/staff")
-def dashboard():
-    if not session.get("staff_id"):
-        return redirect(url_for("login"))
-    with connect_db() as db:
-        staff_member = db.execute("SELECT * FROM staff WHERE id=?", (session["staff_id"],)).fetchone()
-        notifications = db.execute("SELECT * FROM notifications WHERE recipient_type='staff' AND recipient_id=? ORDER BY id DESC LIMIT 50", (session["staff_id"],)).fetchall()
-        unread_count = db.execute("SELECT COUNT(*) FROM notifications WHERE recipient_type='staff' AND recipient_id=? AND is_read=0", (session["staff_id"],)).fetchone()[0]
-        registered_members = db.execute("SELECT id,username,display_name,created_at FROM members ORDER BY id DESC LIMIT 200").fetchall() if session["role"] in ("owner", "developer") else []
-        projects = db.execute("SELECT * FROM projects ORDER BY id DESC").fetchall()
-        warnings = db.execute("SELECT * FROM warnings ORDER BY id DESC LIMIT 50").fetchall()
-        staff = db.execute("SELECT id,username,role,created_at FROM staff ORDER BY id").fetchall() if session["role"] in ("owner", "developer") else []
-        posts = db.execute("SELECT id,title,published,created_at FROM posts ORDER BY id DESC").fetchall() if "blog_manage" in ROLE_PERMISSIONS.get(session["role"], set()) else []
-        news_items = db.execute("SELECT * FROM news ORDER BY id DESC LIMIT 50").fetchall() if "blog_manage" in ROLE_PERMISSIONS.get(session["role"], set()) else []
-        academy_tags = db.execute("SELECT * FROM academy_tags ORDER BY name COLLATE NOCASE").fetchall() if "blog_manage" in ROLE_PERMISSIONS.get(session["role"], set()) else []
-        academy_questions = db.execute("SELECT c.*,m.username,m.display_name,m.avatar_url,p.title AS post_title FROM post_comments c JOIN members m ON m.id=c.member_id JOIN posts p ON p.id=c.post_id ORDER BY CASE WHEN c.reply_text='' THEN 0 ELSE 1 END,c.id DESC LIMIT 100").fetchall() if "blog_manage" in ROLE_PERMISSIONS.get(session["role"], set()) else []
-        project_count = len(projects)
-        warning_count = len(warnings)
-        post_count = len(posts)
-        news_count = len(news_items)
-    role = session["role"]
-    with connect_db() as db:
-        site_images = {row["setting_key"]: row["setting_value"] for row in db.execute("SELECT setting_key,setting_value FROM site_settings")}
-    return render_template("dashboard.html", projects=projects, warnings=warnings, staff=staff, posts=posts, news_items=news_items, news_count=news_count,
-                           academy_tags=academy_tags, academy_questions=academy_questions,
-                           project_count=project_count, warning_count=warning_count, post_count=post_count,
-                           site_images=site_images, role_label=ROLES.get(role, role), staff_member=staff_member,
-                           notifications=notifications, unread_count=unread_count, registered_members=registered_members,
-                           can_create="projects_create" in ROLE_PERMISSIONS[role],
-                           can_warn="warnings_create" in ROLE_PERMISSIONS[role],
-                           full_access="full_access" in ROLE_PERMISSIONS[role],
-                           can_blog="blog_manage" in ROLE_PERMISSIONS[role])
-
-@app.route("/site-settings/images", methods=["POST"])
-@permission_required("full_access")
-def update_site_images():
-    defaults = {
-        "site_logo": "",
-        "hero_image": "https://images.unsplash.com/photo-1542751371-adc38448a05e?auto=format&fit=crop&w=1800&q=85",
-        "about_image": "https://images.unsplash.com/photo-1511512578047-dfb367046420?auto=format&fit=crop&w=1000&q=85",
-        "roleplay_image": "https://images.unsplash.com/photo-1493711662062-fa5416f8d4db?auto=format&fit=crop&w=1100&q=85",
-        "survival_image": "https://images.unsplash.com/photo-1580234811497-9df7fd2f357e?auto=format&fit=crop&w=1100&q=85",
-        "gallery_image_1": "https://images.unsplash.com/photo-1511512578047-dfb367046420?auto=format&fit=crop&w=1200&q=85",
-        "gallery_image_2": "https://images.unsplash.com/photo-1542751371-adc38448a05e?auto=format&fit=crop&w=800&q=85",
-        "gallery_image_3": "https://images.unsplash.com/photo-1493711662062-fa5416f8d4db?auto=format&fit=crop&w=800&q=85"
-    }
-    values = {}
-    for key, default in defaults.items():
-        value = request.form.get(key, "").strip()
-        if value and (not value.startswith("https://") or len(value) > 1500):
-            flash("آدرس همه تصاویر باید با https:// شروع شود و معتبر باشد.", "error")
-            return redirect(url_for("dashboard"))
-        values[key] = value or default
-    with connect_db() as db:
-        for key, value in values.items():
-            db.execute("UPDATE site_settings SET setting_value=? WHERE setting_key=?", (value, key))
-    flash("تصاویر صفحه اصلی ذخیره شدند. برای دیدن تغییرات صفحه اصلی را تازه‌سازی کنید.", "success")
-    return redirect(url_for("dashboard"))
-
-@app.route("/projects/create", methods=["POST"])
-@permission_required("projects_create")
-def create_project():
-    title, description = request.form.get("title", "").strip(), request.form.get("description", "").strip()
-    try:
-        required = max(1, min(50, int(request.form.get("required_builders", "1"))))
-    except ValueError:
-        required = 1
-    if not title or not description:
-        flash("عنوان و توضیحات پروژه الزامی است.", "error")
-    else:
-        with connect_db() as db:
-            db.execute("INSERT INTO projects(title,description,required_builders,created_by) VALUES(?,?,?,?)",
-                       (title, description, required, session["username"]))
-        flash("پروژه با موفقیت تعریف شد.", "success")
-    return redirect(url_for("dashboard"))
-
-@app.route("/projects/<int:project_id>/claim", methods=["POST"])
-@permission_required("projects_claim")
-def claim_project(project_id):
-    with connect_db() as db:
-        project = db.execute("SELECT * FROM projects WHERE id=?", (project_id,)).fetchone()
-        if not project:
-            flash("پروژه پیدا نشد.", "error")
-        elif project["claimed_by"] and project["claimed_by"] != session["username"]:
-            flash("این پروژه قبلاً توسط استف دیگری دریافت شده است.", "error")
-        else:
-            db.execute("UPDATE projects SET claimed_by=?, status='In progress' WHERE id=?",
-                       (session["username"], project_id))
-            flash("پروژه به شما واگذار شد.", "success")
-    return redirect(url_for("dashboard"))
-
-@app.route("/warnings/create", methods=["POST"])
-@permission_required("warnings_create")
-def create_warning():
-    target, reason = request.form.get("staff_username", "").strip(), request.form.get("reason", "").strip()
-    evidence_url = request.form.get("evidence_url", "").strip()
-    with connect_db() as db:
-        if not db.execute("SELECT id FROM staff WHERE username=?", (target,)).fetchone() or not reason:
-            flash("نام کاربری استف باید معتبر باشد و دلیل وارن را وارد کنید.", "error")
-        else:
-            target_staff = db.execute("SELECT id FROM staff WHERE username=?", (target,)).fetchone()
-            db.execute("INSERT INTO warnings(staff_username,reason,evidence_url,issued_by) VALUES(?,?,?,?)",
-                       (target, reason, evidence_url, session["username"]))
-            db.execute("INSERT INTO notifications(recipient_type,recipient_id,title,body,target_url) VALUES('staff',?,?,?,?)",
-                       (target_staff["id"], "وارن جدید ثبت شد", reason[:500], url_for("staff_profile") + "#notifications"))
-            flash("وارن ثبت شد.", "success")
-    return redirect(url_for("dashboard"))
-
-@app.route("/staff/create", methods=["POST"])
-@permission_required("full_access")
-def create_staff():
-    username, password, role = request.form.get("username", "").strip(), request.form.get("password", ""), request.form.get("role", "")
-    if len(username) < 3 or len(password) < 10 or role not in ROLES:
-        flash("نام کاربری باید حداقل ۳ و رمز عبور حداقل ۱۰ کاراکتر باشد؛ نقش را هم بررسی کنید.", "error")
-    else:
-        try:
-            with connect_db() as db:
-                if db.execute("SELECT id FROM members WHERE username=?", (username,)).fetchone():
-                    flash("این نام کاربری متعلق به حساب ثبت‌شده است؛ برای حفظ رمز فعلی از گزینه «اعطای دسترسی استف» استفاده کنید.", "error")
-                    return redirect(url_for("dashboard") + "#staff-accounts")
-                db.execute("INSERT INTO staff(username,password_hash,role) VALUES(?,?,?)", (username, generate_password_hash(password), role))
-            flash("حساب استف ساخته شد؛ کاربر از صفحه ورود یکپارچه وارد می‌شود.", "success")
-        except sqlite3.IntegrityError:
-            flash("این نام کاربری قبلاً ثبت شده است.", "error")
-    return redirect(url_for("dashboard"))
-
-@app.route("/academy")
-def academy():
-    tag_filter=request.args.get("tag",type=int)
-    search_query=bleach.clean(request.args.get("q","").strip(),tags=[],strip=True)[:100]
-    with connect_db() as db:
-        tags=db.execute("SELECT * FROM academy_tags ORDER BY name COLLATE NOCASE").fetchall()
-        sql="SELECT DISTINCT p.id,p.title,p.summary,p.cover_url,p.author,p.created_at FROM posts p"
-        params=[]
-        if tag_filter:
-            sql+=" JOIN post_tags pt ON pt.post_id=p.id AND pt.tag_id=?"
-            params.append(tag_filter)
-        sql+=" WHERE p.published=1"
-        if search_query:
-            sql+=" AND (p.title LIKE ? OR p.summary LIKE ? OR p.content LIKE ? OR p.author LIKE ?)"
-            term="%"+search_query+"%"
-            params.extend([term,term,term,term])
-        sql+=" ORDER BY p.id DESC"
-        posts=db.execute(sql,params).fetchall()
-        tags_by_post={}
-        for post in posts:
-            tags_by_post[post["id"]]=db.execute("SELECT t.id,t.name FROM academy_tags t JOIN post_tags pt ON pt.tag_id=t.id WHERE pt.post_id=? ORDER BY t.name",(post["id"],)).fetchall()
-    return render_template("academy.html",posts=posts,tags=tags,tags_by_post=tags_by_post,selected_tag=tag_filter,search_query=search_query)
-
-@app.route("/academy/<int:post_id>")
-def blog_post(post_id):
-    with connect_db() as db:
-        post = db.execute("SELECT * FROM posts WHERE id=? AND published=1", (post_id,)).fetchone()
-        tags = db.execute("SELECT t.id,t.name FROM academy_tags t JOIN post_tags pt ON pt.tag_id=t.id WHERE pt.post_id=? ORDER BY t.name", (post_id,)).fetchall()
-        comments = db.execute("SELECT c.*,m.username,m.display_name,m.avatar_url FROM post_comments c JOIN members m ON m.id=c.member_id WHERE c.post_id=? ORDER BY c.id DESC", (post_id,)).fetchall()
-        feedback = db.execute("SELECT vote,COUNT(*) AS total FROM post_feedback WHERE post_id=? GROUP BY vote", (post_id,)).fetchall()
-        my_vote = db.execute("SELECT vote FROM post_feedback WHERE post_id=? AND member_id=?", (post_id, session.get("member_id", -1))).fetchone()
-    if not post:
-        abort(404)
-    vote_counts = {row["vote"]: row["total"] for row in feedback}
-    return render_template("post.html", post=post, tags=tags, comments=comments,
-                           likes=vote_counts.get(1, 0), dislikes=vote_counts.get(-1, 0),
-                           my_vote=my_vote["vote"] if my_vote else 0)
-
-@app.route("/academy/<int:post_id>/feedback", methods=["POST"])
-def academy_feedback(post_id):
-    if not session.get("member_id"):
-        flash("برای ثبت نظر مفید بودن آموزش، ابتدا در سایت وارد شوید.", "error")
-        return redirect(url_for("account_login", next=url_for("blog_post", post_id=post_id)))
-    vote = request.form.get("vote", type=int)
-    if vote not in (-1, 1):
-        abort(400)
-    with connect_db() as db:
-        if not db.execute("SELECT id FROM posts WHERE id=? AND published=1", (post_id,)).fetchone():
-            abort(404)
-        db.execute("INSERT INTO post_feedback(post_id,member_id,vote) VALUES(?,?,?) ON CONFLICT(post_id,member_id) DO UPDATE SET vote=excluded.vote,created_at=CURRENT_TIMESTAMP",
-                   (post_id, session["member_id"], vote))
-    return redirect(url_for("blog_post", post_id=post_id) + "#article-feedback")
-
-@app.route("/academy/<int:post_id>/comment", methods=["POST"])
-def academy_comment(post_id):
-    if not session.get("member_id"):
-        flash("برای نوشتن دیدگاه یا پرسش، ابتدا وارد حساب کاربری شوید.", "error")
-        return redirect(url_for("account_login", next=url_for("blog_post", post_id=post_id)))
-    body = bleach.clean(request.form.get("body", "").strip(), tags=[], strip=True)
-    if not body or len(body) > 3000:
-        flash("متن دیدگاه باید بین ۱ تا ۳۰۰۰ نویسه باشد.", "error")
-        return redirect(url_for("blog_post", post_id=post_id) + "#questions")
-    with connect_db() as db:
-        if not db.execute("SELECT id FROM posts WHERE id=? AND published=1", (post_id,)).fetchone():
-            abort(404)
-        db.execute("INSERT INTO post_comments(post_id,member_id,body) VALUES(?,?,?)",
-                   (post_id, session["member_id"], body))
-    flash("دیدگاه یا پرسش شما ثبت شد.", "success")
-    return redirect(url_for("blog_post", post_id=post_id) + "#questions")
-
-@app.route("/academy/comments/<int:comment_id>/reply", methods=["POST"])
-@permission_required("blog_manage")
-def reply_to_comment(comment_id):
-    reply_text = bleach.clean(request.form.get("reply_text", "").strip(), tags=[], strip=True)
-    if not reply_text or len(reply_text) > 3000:
-        flash("پاسخ باید بین ۱ تا ۳۰۰۰ نویسه باشد.", "error")
-        return redirect(url_for("dashboard") + "#academy-questions")
-    with connect_db() as db:
-        comment = db.execute("SELECT post_id FROM post_comments WHERE id=?", (comment_id,)).fetchone()
-        if not comment:
-            abort(404)
-        comment = db.execute("SELECT post_id,member_id FROM post_comments WHERE id=?", (comment_id,)).fetchone()
-        if not comment: abort(404)
-        db.execute("UPDATE post_comments SET reply_text=?,replied_by=?,replied_at=CURRENT_TIMESTAMP WHERE id=?",
-                   (reply_text, session["username"], comment_id))
-        db.execute("INSERT INTO notifications(recipient_type,recipient_id,title,body,target_url) VALUES('member',?,?,?,?)",
-                   (comment["member_id"], "پاسخ جدید به نظر شما", reply_text[:500], url_for("blog_post", post_id=comment["post_id"]) + "#questions"))
-    flash("پاسخ شما ثبت شد.", "success")
-    return redirect(url_for("dashboard") + "#academy-questions")
-
-@app.route("/academy/tags/create", methods=["POST"])
-@permission_required("blog_manage")
-def create_academy_tag():
-    import re
-    name = bleach.clean(request.form.get("name", "").strip(), tags=[], strip=True)
-    if not name or len(name) > 40:
-        flash("نام تگ باید بین ۱ تا ۴۰ نویسه باشد.", "error")
-    else:
-        slug = "tag-" + __import__("hashlib").sha256(name.casefold().encode("utf-8")).hexdigest()[:12]
-        try:
-            with connect_db() as db:
-                db.execute("INSERT INTO academy_tags(name,slug) VALUES(?,?)", (name, slug))
-            flash("تگ جدید ساخته شد.", "success")
-        except sqlite3.IntegrityError:
-            flash("این تگ قبلاً ساخته شده است.", "error")
-    return redirect(url_for("dashboard") + "#academy-tags")
+@app.route("/account")
+def account_portal():
+    return render_template("account_portal.html")
 
 @app.route("/account/register", methods=["GET", "POST"])
 def account_register():
     if request.method == "POST":
         username = request.form.get("username", "").strip()
         password = request.form.get("password", "")
-        display_name = bleach.clean(request.form.get("display_name", "").strip(), tags=[], strip=True)[:80]
-        if len(username) < 3 or len(username) > 30 or not username.replace("_", "").isalnum() or len(password) < 10:
-            flash("نام کاربری باید ۳ تا ۳۰ حرف/عدد یا زیرخط و رمز عبور حداقل ۱۰ کاراکتر باشد.", "error")
+        confirm = request.form.get("confirm_password", "")
+        display = clean_text(request.form.get("display_name", ""), 80) or username
+        minecraft = clean_text(request.form.get("minecraft_username", ""), 32)
+        if not re.fullmatch(r"[A-Za-z0-9_]{3,30}", username):
+            flash("نام کاربری باید ۳ تا ۳۰ نویسه و شامل حروف انگلیسی، عدد یا زیرخط باشد.", "error")
+        elif len(password) < 10:
+            flash("رمز عبور باید حداقل ۱۰ نویسه باشد.", "error")
+        elif password != confirm:
+            flash("تکرار رمز عبور مطابقت ندارد.", "error")
         else:
             try:
                 with connect_db() as db:
-                    if db.execute("SELECT id FROM staff WHERE username=?", (username,)).fetchone():
-                        flash("این نام کاربری از قبل حساب استف دارد؛ از صفحه ورود با همان حساب وارد شوید.", "error")
-                        return render_template("account_register.html")
-                    db.execute("INSERT INTO members(username,password_hash,display_name) VALUES(?,?,?)",
-                               (username, generate_password_hash(password), display_name or username))
-                flash("ثبت‌نام انجام شد؛ اکنون وارد حساب شوید.", "success")
+                    db.execute("""INSERT INTO accounts(username,password_hash,role,display_name,minecraft_username)
+                        VALUES(?,?,'player',?,?)""",
+                        (username, generate_password_hash(password), display, minecraft))
+                flash("حساب بازیکن ساخته شد؛ حالا وارد شوید.", "success")
                 return redirect(url_for("account_login"))
             except sqlite3.IntegrityError:
                 flash("این نام کاربری قبلاً ثبت شده است.", "error")
@@ -495,201 +462,615 @@ def account_login():
         username = request.form.get("username", "").strip()
         password = request.form.get("password", "")
         with connect_db() as db:
-            staff_user = db.execute("SELECT * FROM staff WHERE username=?", (username,)).fetchone()
-            member = db.execute("SELECT * FROM members WHERE username=?", (username,)).fetchone()
-        if staff_user and check_password_hash(staff_user["password_hash"], password):
-            session.clear()
-            session.permanent = True
-            session.update(staff_id=staff_user["id"], username=staff_user["username"], role=staff_user["role"])
-            if member:
-                session["member_id"], session["member_username"] = member["id"], member["username"]
-            next_url = request.args.get("next", "")
-            if next_url.startswith("/") and not next_url.startswith("//"): return redirect(next_url)
-            return redirect(url_for("dashboard"))
-        if member and check_password_hash(member["password_hash"], password):
-            session.clear()
-            session.permanent = True
-            session["member_id"], session["member_username"] = member["id"], member["username"]
-            next_url = request.args.get("next", "")
-            if next_url.startswith("/") and not next_url.startswith("//") and not next_url.startswith("/staff"):
-                return redirect(next_url)
-            return redirect(url_for("account_profile"))
+            account = db.execute("SELECT * FROM accounts WHERE username=? COLLATE NOCASE AND is_active=1", (username,)).fetchone()
+            if account and check_password_hash(account["password_hash"], password):
+                db.execute("UPDATE accounts SET last_login=CURRENT_TIMESTAMP WHERE id=?", (account["id"],))
+                session.clear()
+                session.permanent = True
+                session["account_id"] = account["id"]
+                target = safe_next(request.args.get("next", ""), url_for("staff_dashboard") if account["role"] != "player" else url_for("account_profile"))
+                flash("با موفقیت وارد شدید.", "success")
+                return redirect(target)
         flash("نام کاربری یا رمز عبور اشتباه است.", "error")
     return render_template("account_login.html")
 
 @app.route("/account/logout", methods=["POST"])
 def account_logout():
-    session.pop("member_id", None)
-    session.pop("member_username", None)
+    session.clear()
+    flash("از حساب خارج شدید.", "success")
     return redirect(url_for("index"))
 
 @app.route("/account/profile", methods=["GET", "POST"])
+@account_required
 def account_profile():
-    if not session.get("member_id"):
-        return redirect(url_for("account_login"))
-    with connect_db() as db:
-        member = db.execute("SELECT * FROM members WHERE id=?", (session["member_id"],)).fetchone()
-        if not member:
-            session.pop("member_id", None)
-            session.pop("member_username", None)
-            return redirect(url_for("account_login"))
-        if request.method == "POST":
-            display_name = bleach.clean(request.form.get("display_name", "").strip(), tags=[], strip=True)[:80]
-            avatar_url = member["avatar_url"]
-            uploaded = request.files.get("avatar_file")
-            if uploaded and uploaded.filename:
-                mime = uploaded.mimetype or ""
-                raw = uploaded.read(1_500_001)
-                if mime not in ("image/png", "image/jpeg", "image/webp", "image/gif") or len(raw) > 1_500_000:
-                    flash("تصویر باید PNG، JPG، WEBP یا GIF و حداکثر ۱٫۵ مگابایت باشد.", "error")
-                    return redirect(url_for("account_profile"))
-                avatar_url = "data:" + mime + ";base64," + base64.b64encode(raw).decode("ascii")
-            db.execute("UPDATE members SET display_name=?,avatar_url=? WHERE id=?",
-                       (display_name or member["username"], avatar_url, member["id"]))
-            flash("پروفایل ذخیره شد.", "success")
-            return redirect(url_for("account_profile"))
-        member = db.execute("SELECT * FROM members WHERE id=?", (session["member_id"],)).fetchone()
-        comments = db.execute("SELECT c.id,c.body,c.created_at,c.post_id,p.title FROM post_comments c JOIN posts p ON p.id=c.post_id WHERE c.member_id=? ORDER BY c.id DESC LIMIT 20", (session["member_id"],)).fetchall()
-        notifications = db.execute("SELECT * FROM notifications WHERE recipient_type='member' AND recipient_id=? ORDER BY id DESC LIMIT 50", (session["member_id"],)).fetchall()
-        unread_count = db.execute("SELECT COUNT(*) FROM notifications WHERE recipient_type='member' AND recipient_id=? AND is_read=0", (session["member_id"],)).fetchone()[0]
-    return render_template("account_profile.html", member=member, comments=comments, notifications=notifications, unread_count=unread_count)
-
-@app.route("/account")
-def account_portal(): return render_template("account_portal.html")
-
-@app.route("/account/notifications/<int:notification_id>/read",methods=["POST"])
-def member_notification_read(notification_id):
-    if not session.get("member_id"): return redirect(url_for("account_portal"))
-    with connect_db() as db:
-        db.execute("UPDATE notifications SET is_read=1 WHERE id=? AND recipient_type='member' AND recipient_id=?",(notification_id,session["member_id"]))
-        item=db.execute("SELECT target_url FROM notifications WHERE id=? AND recipient_type='member' AND recipient_id=?",(notification_id,session["member_id"])).fetchone()
-    return redirect(item["target_url"] if item else url_for("account_profile"))
-
-@app.route("/staff/profile", methods=["GET", "POST"])
-def staff_profile():
-    return redirect(url_for("dashboard") + "#staff-profile")
-
-@app.route("/staff/profile/update", methods=["POST"])
-def update_staff_profile():
-    if not session.get("staff_id"): return redirect(url_for("account_login"))
-    with connect_db() as db:
-        user = db.execute("SELECT * FROM staff WHERE id=?", (session["staff_id"],)).fetchone()
-        if not user:
-            session.clear()
-            return redirect(url_for("account_login"))
-        display_name = bleach.clean(request.form.get("display_name", "").strip(), tags=[], strip=True)[:80]
-        avatar_url = user["avatar_url"]
+    if request.method == "POST":
+        display = clean_text(request.form.get("display_name", ""), 80) or g.account["username"]
+        bio = clean_text(request.form.get("bio", ""), 500)
+        minecraft = clean_text(request.form.get("minecraft_username", ""), 32)
+        telegram = clean_text(request.form.get("telegram", ""), 50)
+        discord = clean_text(request.form.get("discord", ""), 80)
+        avatar = g.account["avatar_url"]
         uploaded = request.files.get("avatar_file")
         if uploaded and uploaded.filename:
             mime = uploaded.mimetype or ""
             raw = uploaded.read(1_500_001)
-            if mime not in ("image/png", "image/jpeg", "image/webp", "image/gif") or not raw or len(raw) > 1_500_000:
-                flash("تصویر باید PNG، JPG، WEBP یا GIF و حداکثر ۱٫۵ مگابایت باشد.", "error")
-                return redirect(url_for("dashboard") + "#staff-profile")
-            avatar_url = "data:" + mime + ";base64," + base64.b64encode(raw).decode("ascii")
-        db.execute("UPDATE staff SET display_name=?,avatar_url=? WHERE id=?", (display_name or user["username"], avatar_url, user["id"]))
-    flash("مشخصات پروفایل ذخیره شد.", "success")
-    return redirect(url_for("dashboard") + "#staff-profile")
+            if mime not in {"image/png", "image/jpeg", "image/webp", "image/gif"} or not raw or len(raw) > 1_500_000:
+                flash("تصویر باید PNG/JPG/WEBP/GIF و حداکثر ۱٫۵ مگابایت باشد.", "error")
+                return redirect(url_for("account_profile"))
+            avatar = "data:" + mime + ";base64," + base64.b64encode(raw).decode("ascii")
+        with connect_db() as db:
+            db.execute("""UPDATE accounts SET display_name=?,bio=?,minecraft_username=?,telegram=?,discord=?,avatar_url=? WHERE id=?""",
+                       (display, bio, minecraft, telegram, discord, avatar, g.account["id"]))
+        flash("پروفایل ذخیره شد.", "success")
+        return redirect(url_for("account_profile"))
+    with connect_db() as db:
+        comments = db.execute("SELECT c.*,p.title,p.id AS article_id FROM post_comments c JOIN posts p ON p.id=c.post_id WHERE c.account_id=? ORDER BY c.id DESC LIMIT 20", (g.account["id"],)).fetchall()
+        notifications = db.execute("SELECT * FROM notifications WHERE recipient_id=? ORDER BY id DESC LIMIT 30", (g.account["id"],)).fetchall()
+        unread_count = db.execute("SELECT COUNT(*) FROM notifications WHERE recipient_id=? AND is_read=0", (g.account["id"],)).fetchone()[0]
+        activity = db.execute("SELECT * FROM staff_activity WHERE account_id=? ORDER BY id DESC LIMIT 20", (g.account["id"],)).fetchall() if g.account["role"] != "player" else []
+        presence = db.execute("SELECT * FROM staff_presence WHERE username=? COLLATE NOCASE", (g.account["username"],)).fetchone()
+        warnings = db.execute("SELECT * FROM warnings WHERE staff_username=? COLLATE NOCASE ORDER BY id DESC LIMIT 30", (g.account["username"],)).fetchall() if g.account["role"] != "player" else []
+    return render_template("account_profile.html", comments=comments, notifications=notifications, unread_count=unread_count, activity=activity, presence=presence, warnings=warnings)
+
+@app.route("/staff/login")
+def staff_login():
+    return redirect(url_for("account_login", next=url_for("staff_dashboard")))
+
+@app.route("/staff/logout", methods=["POST"])
+def staff_logout():
+    return account_logout()
+
+@app.route("/staff/profile")
+def staff_profile():
+    if g.account and g.account["role"] != "player":
+        return redirect(url_for("account_profile"))
+    return redirect(url_for("account_login"))
+
+@app.route("/staff")
+@staff_required
+def staff_dashboard():
+    role = g.account["role"]
+    with connect_db() as db:
+        projects = db.execute("""SELECT p.*,COUNT(DISTINCT pm.account_id) AS assigned_count,
+            COUNT(DISTINCT t.id) AS task_count,
+            COUNT(DISTINCT CASE WHEN t.status='done' THEN t.id END) AS completed_tasks
+            FROM projects p LEFT JOIN project_members pm ON pm.project_id=p.id
+            LEFT JOIN tasks t ON t.project_id=p.id GROUP BY p.id ORDER BY p.id DESC LIMIT 100""").fetchall()
+        my_tasks = db.execute("""SELECT t.*,p.title AS project_title,a.username AS assignee_name
+            FROM tasks t LEFT JOIN projects p ON p.id=t.project_id LEFT JOIN accounts a ON a.id=t.assigned_to
+            WHERE t.assigned_to=? OR (? IN ('developer','owner','manager','admin','hbuilder') AND t.assigned_to IS NULL)
+            ORDER BY CASE t.status WHEN 'todo' THEN 0 WHEN 'doing' THEN 1 ELSE 2 END,t.id DESC LIMIT 50""", (g.account["id"], role)).fetchall()
+        warnings = db.execute("SELECT * FROM warnings WHERE staff_username=? COLLATE NOCASE ORDER BY id DESC LIMIT 20", (g.account["username"],)).fetchall()
+        recent_warnings = db.execute("SELECT * FROM warnings ORDER BY id DESC LIMIT 30").fetchall() if role in WARNING_ROLES else []
+        staff = db.execute("SELECT * FROM accounts WHERE role<>'player' ORDER BY CASE role WHEN 'owner' THEN 0 WHEN 'developer' THEN 1 ELSE 2 END,username").fetchall()
+        members = db.execute("SELECT id,username,display_name,created_at FROM accounts WHERE role='player' ORDER BY id DESC LIMIT 200").fetchall() if role in MASTER_ROLES else []
+        activity = db.execute("SELECT * FROM staff_activity ORDER BY id DESC LIMIT 40").fetchall() if role in MASTER_ROLES | {"manager","admin","hbuilder"} else db.execute("SELECT * FROM staff_activity WHERE account_id=? ORDER BY id DESC LIMIT 20", (g.account["id"],)).fetchall()
+        news_items = db.execute("SELECT * FROM news ORDER BY id DESC LIMIT 30").fetchall() if role in CONTENT_ROLES else []
+        posts = db.execute("SELECT * FROM posts ORDER BY id DESC LIMIT 30").fetchall() if role in CONTENT_ROLES else []
+        tags = db.execute("SELECT * FROM academy_tags ORDER BY name").fetchall() if role in CONTENT_ROLES else []
+        comments = db.execute("""SELECT c.*,a.username,a.display_name,p.title AS post_title FROM post_comments c
+            JOIN accounts a ON a.id=c.account_id JOIN posts p ON p.id=c.post_id ORDER BY c.id DESC LIMIT 50""").fetchall() if role in CONTENT_ROLES else []
+        conversations = db.execute("""SELECT c.* FROM conversations c JOIN conversation_members cm ON cm.conversation_id=c.id
+            WHERE cm.account_id=? ORDER BY CASE c.kind WHEN 'group' THEN 0 ELSE 1 END,c.id""", (g.account["id"],)).fetchall()
+        conversation_data = []
+        for convo in conversations:
+            messages = db.execute("""SELECT m.*,a.username AS sender_username,a.display_name AS sender_name FROM messages m
+                LEFT JOIN accounts a ON a.id=m.sender_id WHERE m.conversation_id=? ORDER BY m.id DESC LIMIT 30""", (convo["id"],)).fetchall()
+            title = convo["title"]
+            if convo["kind"] == "private":
+                other = db.execute("""SELECT a.username FROM conversation_members cm JOIN accounts a ON a.id=cm.account_id
+                    WHERE cm.conversation_id=? AND cm.account_id<>? LIMIT 1""", (convo["id"],g.account["id"])).fetchone()
+                if other:
+                    title = "پیام خصوصی با " + other["username"]
+            conversation_data.append({"id":convo["id"],"kind":convo["kind"],"title":title,"messages":list(reversed(messages))})
+        unread_count = db.execute("SELECT COUNT(*) FROM notifications WHERE recipient_id=? AND is_read=0", (g.account["id"],)).fetchone()[0]
+        online_count = db.execute("SELECT COUNT(*) FROM staff_presence WHERE is_online=1").fetchone()[0]
+        builders = db.execute("SELECT id,username,display_name,role FROM accounts WHERE role='builder' ORDER BY username").fetchall()
+        project_builders = db.execute("""SELECT pm.project_id,a.id,a.username,a.display_name FROM project_members pm
+            JOIN accounts a ON a.id=pm.account_id WHERE a.role='builder' ORDER BY a.username""").fetchall()
+        joined_project_ids = {r["project_id"] for r in db.execute("SELECT project_id FROM project_members WHERE account_id=?", (g.account["id"],)).fetchall()}
+        site_images = {r["setting_key"]:r["setting_value"] for r in db.execute("SELECT setting_key,setting_value FROM site_settings")}
+    return render_template("dashboard.html", projects=projects, my_tasks=my_tasks, warnings=warnings,
+        recent_warnings=recent_warnings, staff=staff, members=members, activity=activity,
+        news_items=news_items, posts=posts, tags=tags, comments=comments,
+        conversations=conversation_data, unread_count=unread_count, online_count=online_count, builders=builders, project_builders=project_builders,
+        joined_project_ids=joined_project_ids, site_images=site_images, role_label=ROLE_LABELS.get(role,role), can_manage_projects=role in PROJECT_MANAGERS,
+        can_warn=role in WARNING_ROLES, can_manage_staff=role in MASTER_ROLES, can_manage_content=role in CONTENT_ROLES)
+
+@app.route("/staff/change-password", methods=["POST"])
+@account_required
+def change_password():
+    current = request.form.get("current_password", "")
+    new = request.form.get("new_password", "")
+    confirm = request.form.get("confirm_password", "")
+    if len(new) < 10 or new != confirm:
+        flash("رمز جدید باید حداقل ۱۰ نویسه باشد و با تکرار آن مطابقت داشته باشد.", "error")
+        return redirect(url_for("account_profile"))
+    if not check_password_hash(g.account["password_hash"], current):
+        flash("رمز فعلی درست نیست.", "error")
+        return redirect(url_for("account_profile"))
+    with connect_db() as db:
+        db.execute("UPDATE accounts SET password_hash=? WHERE id=?", (generate_password_hash(new), g.account["id"]))
+    session.clear()
+    flash("رمز تغییر کرد؛ دوباره وارد شوید.", "success")
+    return redirect(url_for("account_login"))
+
+@app.route("/projects/create", methods=["POST"])
+@staff_required
+def create_project():
+    if g.account["role"] not in PROJECT_MANAGERS:
+        abort(403)
+    title = clean_text(request.form.get("title", ""), 160)
+    description = clean_text(request.form.get("description", ""), 5000)
+    try:
+        required = max(1, min(50, int(request.form.get("required_builders", "1"))))
+    except ValueError:
+        required = 1
+    if not title or not description:
+        flash("عنوان و توضیحات پروژه الزامی است.", "error")
+        return redirect(url_for("staff_dashboard") + "#projects")
+    with connect_db() as db:
+        db.execute("INSERT INTO projects(title,description,required_builders,status,created_by) VALUES(?,?,?,'Open',?)",
+                   (title,description,required,g.account["username"]))
+    log_activity(g.account,"project_created",title)
+    flash("پروژه ساخته شد.", "success")
+    return redirect(url_for("staff_dashboard") + "#projects")
+
+@app.route("/projects/<int:project_id>/join", methods=["POST"])
+@staff_required
+def join_project(project_id):
+    if g.account["role"] not in {"builder"} | MASTER_ROLES:
+        abort(403)
+    with connect_db() as db:
+        project = db.execute("SELECT * FROM projects WHERE id=?", (project_id,)).fetchone()
+        if not project:
+            abort(404)
+        if project["status"] in {"Completed","Closed","Cancelled"}:
+            flash("این پروژه بسته شده است.", "error")
+        else:
+            already = db.execute("SELECT 1 FROM project_members WHERE project_id=? AND account_id=?", (project_id,g.account["id"])).fetchone()
+            count = db.execute("SELECT COUNT(*) FROM project_members WHERE project_id=?", (project_id,)).fetchone()[0]
+            if already:
+                flash("از قبل عضو این پروژه هستید.", "info")
+            elif count >= project["required_builders"]:
+                db.execute("UPDATE projects SET status='Full' WHERE id=?", (project_id,))
+                flash("ظرفیت پروژه تکمیل شده است.", "error")
+            else:
+                db.execute("INSERT INTO project_members(project_id,account_id) VALUES(?,?)", (project_id,g.account["id"]))
+                count += 1
+                db.execute("UPDATE projects SET status=? WHERE id=?", ("Full" if count >= project["required_builders"] else "In progress",project_id))
+                flash("به پروژه پیوستید.", "success")
+    log_activity(g.account,"project_joined",project["title"])
+    return redirect(url_for("staff_dashboard") + "#projects")
+
+@app.route("/projects/<int:project_id>/tasks/create", methods=["POST"])
+@staff_required
+def create_task(project_id):
+    if g.account["role"] not in PROJECT_MANAGERS:
+        abort(403)
+    title = clean_text(request.form.get("title",""),160)
+    description = clean_text(request.form.get("description",""),2000)
+    assignee_raw = request.form.get("assigned_to","").strip()
+    assignee_id = int(assignee_raw) if assignee_raw.isdigit() else None
+    with connect_db() as db:
+        project = db.execute("SELECT id FROM projects WHERE id=?", (project_id,)).fetchone()
+        if not project:
+            abort(404)
+        if assignee_id and not db.execute("SELECT id FROM project_members WHERE project_id=? AND account_id=?", (project_id,assignee_id)).fetchone():
+            flash("مسئول تسک باید عضو همین پروژه باشد.", "error")
+            return redirect(url_for("staff_dashboard")+"#tasks")
+        if title:
+            db.execute("INSERT INTO tasks(project_id,title,description,assigned_to,created_by) VALUES(?,?,?,?,?)",
+                       (project_id,title,description,assignee_id,g.account["id"]))
+            flash("تسک ساخته شد.", "success")
+        else:
+            flash("عنوان تسک الزامی است.", "error")
+    return redirect(url_for("staff_dashboard")+"#tasks")
+
+@app.route("/tasks/<int:task_id>/status", methods=["POST"])
+@staff_required
+def update_task_status(task_id):
+    status = request.form.get("status","")
+    if status not in {"todo","doing","done"}:
+        abort(400)
+    with connect_db() as db:
+        task = db.execute("SELECT * FROM tasks WHERE id=?", (task_id,)).fetchone()
+        if not task:
+            abort(404)
+        allowed = task["assigned_to"] == g.account["id"] or g.account["role"] in PROJECT_MANAGERS | MASTER_ROLES
+        if not allowed:
+            abort(403)
+        db.execute("UPDATE tasks SET status=?,updated_at=CURRENT_TIMESTAMP WHERE id=?", (status,task_id))
+    log_activity(g.account,"task_status",f"#{task_id}: {status}")
+    flash("وضعیت تسک به‌روزرسانی شد.", "success")
+    return redirect(url_for("staff_dashboard")+"#tasks")
+
+@app.route("/warnings/create", methods=["POST"])
+@staff_required
+def create_warning():
+    if g.account["role"] not in WARNING_ROLES:
+        abort(403)
+    target = request.form.get("staff_username","").strip()
+    reason = clean_text(request.form.get("reason",""),2000)
+    evidence_url = request.form.get("evidence_url","").strip()
+    evidence_data = ""
+    upload = request.files.get("evidence_file")
+    if upload and upload.filename:
+        mime = upload.mimetype or ""
+        raw = upload.read(8_000_001)
+        if mime not in {"image/png","image/jpeg","image/webp","image/gif","video/mp4","video/webm"} or not raw or len(raw)>8_000_000:
+            flash("مدرک باید تصویر یا ویدئوی MP4/WEBM و حداکثر ۸ مگابایت باشد.", "error")
+            return redirect(url_for("staff_dashboard")+"#warnings")
+        evidence_data = "data:"+mime+";base64,"+base64.b64encode(raw).decode("ascii")
+    elif evidence_url and (not evidence_url.startswith("https://") or len(evidence_url)>1500):
+        flash("لینک مدرک باید با HTTPS شروع شود.", "error")
+        return redirect(url_for("staff_dashboard")+"#warnings")
+    with connect_db() as db:
+        target_account = db.execute("SELECT * FROM accounts WHERE username=? COLLATE NOCASE AND role<>'player'",(target,)).fetchone()
+        if not target_account:
+            flash("کارمند موردنظر پیدا نشد.", "error")
+        elif g.account["role"] == "hbuilder" and target_account["role"] != "builder":
+            flash("H-Builder فقط می‌تواند برای Builder اخطار ثبت کند.", "error")
+        elif not reason:
+            flash("دلیل اخطار الزامی است.", "error")
+        else:
+            db.execute("INSERT INTO warnings(staff_username,reason,evidence_url,evidence_data,issued_by) VALUES(?,?,?,?,?)",
+                       (target_account["username"],reason,evidence_url,evidence_data,g.account["username"]))
+            db.execute("INSERT INTO notifications(recipient_type,recipient_id,title,body,target_url) VALUES('account',?,?,?,?)",
+                       (target_account["id"],"اخطار جدید",reason[:500],url_for("account_profile")+"#warnings"))
+            flash("اخطار ثبت شد.", "success")
+    log_activity(g.account,"warning_created",target)
+    return redirect(url_for("staff_dashboard")+"#warnings")
 
 @app.route("/staff/promote-member", methods=["POST"])
-@permission_required("full_access")
+@roles_required("developer","owner")
 def promote_member():
-    username = request.form.get("username", "").strip()
-    role = request.form.get("role", "")
-    if role not in ("builder", "hbuilder", "developer", "owner"):
+    username = request.form.get("username","").strip()
+    role = request.form.get("role","")
+    if role not in STAFF_ROLES:
         flash("نقش انتخاب‌شده معتبر نیست.", "error")
-        return redirect(url_for("dashboard") + "#staff-accounts")
+        return redirect(url_for("staff_dashboard")+"#staff-accounts")
     with connect_db() as db:
-        member = db.execute("SELECT * FROM members WHERE username=?", (username,)).fetchone()
-        existing = db.execute("SELECT id FROM staff WHERE username=?", (username,)).fetchone()
-        if not member: flash("حساب ثبت‌شده‌ای با این نام کاربری پیدا نشد.", "error")
-        elif existing: flash("این حساب از قبل دسترسی استف دارد.", "error")
+        target = db.execute("SELECT * FROM accounts WHERE username=? COLLATE NOCASE", (username,)).fetchone()
+        if not target:
+            flash("حساب بازیکن پیدا نشد.", "error")
+        elif target["id"] == g.account["id"] and role != "owner":
+            flash("نقش حساب خود را از این بخش تغییر ندهید.", "error")
         else:
-            db.execute("INSERT INTO staff(username,password_hash,role,display_name,avatar_url) VALUES(?,?,?,?,?)",
-                       (member["username"], member["password_hash"], role, member["display_name"], member["avatar_url"]))
-            flash("دسترسی استف فعال شد؛ کاربر با همان نام کاربری و رمز وارد می‌شود.", "success")
-    return redirect(url_for("dashboard") + "#staff-accounts")
+            db.execute("UPDATE accounts SET role=? WHERE id=?", (role,target["id"]))
+            group = db.execute("SELECT id FROM conversations WHERE kind='group' AND title='گروه کارکنان' LIMIT 1").fetchone()
+            if group:
+                db.execute("INSERT OR IGNORE INTO conversation_members(conversation_id,account_id) VALUES(?,?)", (group["id"],target["id"]))
+            db.execute("INSERT INTO notifications(recipient_type,recipient_id,title,body,target_url) VALUES('account',?,?,?,?)",
+                       (target["id"],"دسترسی کارکنان فعال شد","نقش جدید شما: "+ROLE_LABELS[role],url_for("staff_dashboard")))
+            flash(f"دسترسی {ROLE_LABELS[role]} برای {target['username']} فعال شد.", "success")
+    return redirect(url_for("staff_dashboard")+"#staff-accounts")
 
-@app.route("/staff/notifications/<int:notification_id>/read",methods=["POST"])
-def staff_notification_read(notification_id):
-    if not session.get("staff_id"): return redirect(url_for("login"))
+@app.route("/staff/role/<int:account_id>", methods=["POST"])
+@roles_required("developer","owner")
+def change_staff_role(account_id):
+    role = request.form.get("role","")
+    if role not in STAFF_ROLES:
+        abort(400)
     with connect_db() as db:
-        db.execute("UPDATE notifications SET is_read=1 WHERE id=? AND recipient_type='staff' AND recipient_id=?",(notification_id,session["staff_id"]))
-        item=db.execute("SELECT target_url FROM notifications WHERE id=? AND recipient_type='staff' AND recipient_id=?",(notification_id,session["staff_id"])).fetchone()
-    target = item["target_url"] if item else url_for("dashboard") + "#notifications"
-    if target.startswith("/staff/profile"): target = url_for("dashboard") + "#notifications"
-    return redirect(target)
+        target = db.execute("SELECT * FROM accounts WHERE id=? AND role<>'player'", (account_id,)).fetchone()
+        if not target:
+            abort(404)
+        if target["role"] in MASTER_ROLES and g.account["role"] not in MASTER_ROLES:
+            abort(403)
+        db.execute("UPDATE accounts SET role=? WHERE id=?", (role,account_id))
+    flash("نقش کارکنان به‌روزرسانی شد.", "success")
+    return redirect(url_for("staff_dashboard")+"#staff-accounts")
+
+@app.route("/site-settings/images", methods=["POST"])
+@roles_required("developer","owner")
+def update_site_images():
+    values = {}
+    for key, default in IMAGE_DEFAULTS.items():
+        value = request.form.get(key,"").strip()
+        if value and (not value.startswith("https://") or len(value)>1500):
+            flash("آدرس تصاویر باید HTTPS باشد.", "error")
+            return redirect(url_for("staff_dashboard")+"#site-settings")
+        values[key] = value or default
+    with connect_db() as db:
+        for key,value in values.items():
+            db.execute("UPDATE site_settings SET setting_value=? WHERE setting_key=?", (value,key))
+    flash("تصاویر سایت ذخیره شدند.", "success")
+    return redirect(url_for("staff_dashboard")+"#site-settings")
+
+@app.route("/messages/private", methods=["POST"])
+@staff_required
+def start_private_message():
+    recipient = request.form.get("recipient","").strip()
+    body = clean_text(request.form.get("body",""),4000)
+    if not recipient or not body:
+        flash("گیرنده و متن پیام الزامی است.", "error")
+        return redirect(url_for("staff_dashboard")+"#messenger")
+    with connect_db() as db:
+        target = db.execute("SELECT id,username FROM accounts WHERE username=? COLLATE NOCASE AND role<>'player'", (recipient,)).fetchone()
+        if not target or target["id"] == g.account["id"]:
+            flash("گیرنده معتبر نیست.", "error")
+            return redirect(url_for("staff_dashboard")+"#messenger")
+        convo = db.execute("""SELECT c.id FROM conversations c
+            JOIN conversation_members a ON a.conversation_id=c.id AND a.account_id=?
+            JOIN conversation_members b ON b.conversation_id=c.id AND b.account_id=?
+            WHERE c.kind='private' LIMIT 1""", (g.account["id"],target["id"])).fetchone()
+        if convo:
+            convo_id = convo["id"]
+        else:
+            convo_id = db.execute("INSERT INTO conversations(kind,title,created_by) VALUES('private',?,?)",
+                ("پیام خصوصی",g.account["id"])).lastrowid
+            db.execute("INSERT INTO conversation_members(conversation_id,account_id) VALUES(?,?)", (convo_id,g.account["id"]))
+            db.execute("INSERT INTO conversation_members(conversation_id,account_id) VALUES(?,?)", (convo_id,target["id"]))
+        db.execute("INSERT INTO messages(conversation_id,sender_id,body) VALUES(?,?,?)", (convo_id,g.account["id"],body))
+    flash("پیام ارسال شد.", "success")
+    return redirect(url_for("staff_dashboard")+"#messenger")
+
+@app.route("/messages/<int:conversation_id>/send", methods=["POST"])
+@staff_required
+def send_message(conversation_id):
+    body = clean_text(request.form.get("body",""),4000)
+    with connect_db() as db:
+        member = db.execute("SELECT 1 FROM conversation_members WHERE conversation_id=? AND account_id=?", (conversation_id,g.account["id"])).fetchone()
+        if not member:
+            abort(403)
+        if not body:
+            flash("متن پیام خالی است.", "error")
+        else:
+            db.execute("INSERT INTO messages(conversation_id,sender_id,body) VALUES(?,?,?)", (conversation_id,g.account["id"],body))
+            flash("پیام ارسال شد.", "success")
+    return redirect(url_for("staff_dashboard")+"#messenger")
+
+@app.route("/api/minecraft-event", methods=["POST"])
+def minecraft_event():
+    expected = os.environ.get("MINECRAFT_WEBHOOK_TOKEN","")
+    supplied = request.headers.get("X-MiladCraft-Token","")
+    if not expected:
+        return jsonify(error="integration_not_configured"),503
+    if not supplied or not hmac.compare_digest(supplied,expected):
+        abort(401)
+    payload = request.get_json(silent=True) or {}
+    username = str(payload.get("username","")).strip()[:32]
+    event = str(payload.get("event","")).lower().strip()
+    if not username or event not in {"join","quit","leave"}:
+        abort(400)
+    with connect_db() as db:
+        account = db.execute("SELECT * FROM accounts WHERE username=? COLLATE NOCASE AND role<>'player'", (username,)).fetchone()
+        if not account:
+            return jsonify(status="ignored",reason="not_staff"),200
+        presence = db.execute("SELECT * FROM staff_presence WHERE username=? COLLATE NOCASE", (account["username"],)).fetchone()
+        if event == "join":
+            db.execute("""INSERT INTO staff_presence(username,is_online,joined_at,last_seen,total_minutes)
+                VALUES(?,1,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP,0)
+                ON CONFLICT(username) DO UPDATE SET is_online=1,
+                joined_at=CASE WHEN staff_presence.is_online=0 THEN CURRENT_TIMESTAMP ELSE staff_presence.joined_at END,
+                last_seen=CURRENT_TIMESTAMP""", (account["username"],))
+        else:
+            if presence and presence["is_online"] and presence["joined_at"]:
+                db.execute("""UPDATE staff_presence SET is_online=0,last_seen=CURRENT_TIMESTAMP,
+                    total_minutes=total_minutes+MAX(0,CAST((julianday('now')-julianday(joined_at))*1440 AS INTEGER)),joined_at=NULL
+                    WHERE username=? COLLATE NOCASE""", (account["username"],))
+            else:
+                db.execute("""INSERT INTO staff_presence(username,is_online,last_seen,total_minutes) VALUES(?,0,CURRENT_TIMESTAMP,0)
+                    ON CONFLICT(username) DO UPDATE SET is_online=0,last_seen=CURRENT_TIMESTAMP,joined_at=NULL""", (account["username"],))
+        db.execute("INSERT INTO staff_activity(account_id,username,event_type,details) VALUES(?,?,?,?)",
+                   (account["id"],account["username"],"minecraft_"+("join" if event=="join" else "quit"),"Minecraft "+event))
+    return jsonify(status="ok",username=account["username"],event=event)
 
 @app.route("/news")
 def news_page():
-    with connect_db() as db: news_items=db.execute("SELECT * FROM news WHERE published=1 ORDER BY id DESC").fetchall()
+    with connect_db() as db:
+        news_items = db.execute("SELECT * FROM news WHERE published=1 ORDER BY id DESC").fetchall()
     return render_template("news.html",news_items=news_items)
 
 @app.route("/news/<int:news_id>")
 def news_detail(news_id):
-    with connect_db() as db: item=db.execute("SELECT * FROM news WHERE id=? AND published=1",(news_id,)).fetchone()
-    if not item: abort(404)
+    with connect_db() as db:
+        item = db.execute("SELECT * FROM news WHERE id=? AND published=1", (news_id,)).fetchone()
+    if not item:
+        abort(404)
     return render_template("news_detail.html",item=item)
 
-@app.route("/news/create",methods=["POST"])
-@permission_required("blog_manage")
+@app.route("/news/create", methods=["POST"])
+@staff_required
 def create_news():
-    title=bleach.clean(request.form.get("title","").strip(),tags=[],strip=True)[:180]
-    summary=bleach.clean(request.form.get("summary","").strip(),tags=[],strip=True)[:500]
-    content=bleach.clean(request.form.get("content",""),tags=BLOG_TAGS,attributes=BLOG_ATTRS,protocols=BLOG_PROTOCOLS,strip=True)
-    cover_url=request.form.get("cover_url","").strip(); published=1 if request.form.get("published")=="1" else 0
-    if not title or not bleach.clean(content,tags=[],strip=True).strip(): flash("عنوان و متن خبر الزامی است.","error")
-    elif cover_url and (not cover_url.startswith("https://") or len(cover_url)>1500): flash("آدرس کاور خبر باید با https:// شروع شود.","error")
+    if g.account["role"] not in CONTENT_ROLES:
+        abort(403)
+    title = clean_text(request.form.get("title",""),180)
+    summary = clean_text(request.form.get("summary",""),500)
+    content = bleach.clean(request.form.get("content",""),tags=BLOG_TAGS,attributes=BLOG_ATTRS,protocols=BLOG_PROTOCOLS,strip=True)
+    cover = request.form.get("cover_url","").strip()
+    published = 1 if request.form.get("published") == "1" else 0
+    if not title or not bleach.clean(content,tags=[],strip=True).strip():
+        flash("عنوان و محتوای خبر الزامی است.", "error")
+    elif cover and not cover.startswith("https://"):
+        flash("لینک تصویر باید با HTTPS شروع شود.", "error")
     else:
-        with connect_db() as db: db.execute("INSERT INTO news(title,summary,content,cover_url,author,published) VALUES(?,?,?,?,?,?)",(title,summary,content,cover_url,session["username"],published))
-        flash("خبر ذخیره شد.","success")
-    return redirect(url_for("dashboard")+"#news-management")
+        with connect_db() as db:
+            db.execute("INSERT INTO news(title,summary,content,cover_url,author,published) VALUES(?,?,?,?,?,?)",
+                       (title,summary,content,cover,g.account["username"],published))
+        flash("خبر ذخیره شد.", "success")
+    return redirect(url_for("staff_dashboard")+"#news-management")
 
-@app.route("/academy/editor", methods=["GET", "POST"])
-@permission_required("blog_manage")
+@app.route("/academy")
+def academy():
+    query = request.args.get("q","").strip()[:100]
+    tag_slug = request.args.get("tag","").strip()[:80]
+    with connect_db() as db:
+        tags = db.execute("SELECT * FROM academy_tags ORDER BY name COLLATE NOCASE").fetchall()
+        sql = "SELECT DISTINCT p.* FROM posts p LEFT JOIN post_tags pt ON pt.post_id=p.id LEFT JOIN academy_tags t ON t.id=pt.tag_id WHERE p.published=1"
+        args = []
+        if query:
+            sql += " AND (p.title LIKE ? OR p.summary LIKE ? OR p.content LIKE ? OR p.author LIKE ?)"
+            args.extend([f"%{query}%"]*4)
+        if tag_slug:
+            sql += " AND t.slug=?"
+            args.append(tag_slug)
+        sql += " ORDER BY p.id DESC"
+        posts = db.execute(sql,args).fetchall()
+    return render_template("academy.html",posts=posts,tags=tags,query=query,tag_slug=tag_slug)
+
+@app.route("/academy/<int:post_id>")
+def blog_post(post_id):
+    with connect_db() as db:
+        post = db.execute("SELECT * FROM posts WHERE id=? AND (published=1 OR ?)", (post_id, int(bool(g.account and g.account["role"] in CONTENT_ROLES)))).fetchone()
+        if not post:
+            abort(404)
+        tags = db.execute("SELECT t.* FROM academy_tags t JOIN post_tags pt ON pt.tag_id=t.id WHERE pt.post_id=? ORDER BY t.name", (post_id,)).fetchall()
+        comments = db.execute("SELECT c.*,a.username,a.display_name,a.avatar_url FROM post_comments c JOIN accounts a ON a.id=c.account_id WHERE c.post_id=? ORDER BY c.id DESC", (post_id,)).fetchall()
+        feedback = db.execute("SELECT vote,COUNT(*) AS count FROM post_feedback WHERE post_id=? GROUP BY vote", (post_id,)).fetchall()
+        my_vote = db.execute("SELECT vote FROM post_feedback WHERE post_id=? AND account_id=?", (post_id,g.account["id"])).fetchone() if g.account else None
+    return render_template("post.html",post=post,tags=tags,comments=comments,feedback=feedback,my_vote=my_vote)
+
+@app.route("/academy/<int:post_id>/feedback", methods=["POST"])
+@account_required
+def academy_feedback(post_id):
+    try:
+        vote = int(request.form.get("vote","0"))
+    except ValueError:
+        vote = 0
+    if vote not in {-1,1}:
+        abort(400)
+    with connect_db() as db:
+        if not db.execute("SELECT id FROM posts WHERE id=? AND published=1", (post_id,)).fetchone():
+            abort(404)
+        db.execute("""INSERT INTO post_feedback(post_id,account_id,vote) VALUES(?,?,?)
+            ON CONFLICT(post_id,account_id) DO UPDATE SET vote=excluded.vote,created_at=CURRENT_TIMESTAMP""",
+            (post_id,g.account["id"],vote))
+    return redirect(url_for("blog_post",post_id=post_id)+"#article-feedback")
+
+@app.route("/academy/<int:post_id>/comment", methods=["POST"])
+@account_required
+def academy_comment(post_id):
+    body = clean_text(request.form.get("body",""),3000)
+    if not body:
+        flash("متن دیدگاه الزامی است.", "error")
+    else:
+        with connect_db() as db:
+            if not db.execute("SELECT id FROM posts WHERE id=? AND published=1", (post_id,)).fetchone():
+                abort(404)
+            cur = db.execute("INSERT INTO post_comments(post_id,account_id,body) VALUES(?,?,?)", (post_id,g.account["id"],body))
+            if g.account["role"] != "player":
+                pass
+            else:
+                for manager in db.execute("SELECT id FROM accounts WHERE role IN ('owner','developer','admin','manager')").fetchall():
+                    db.execute("INSERT INTO notifications(recipient_type,recipient_id,title,body,target_url) VALUES('account',?,?,?,?)",
+                        (manager["id"],"دیدگاه جدید",body[:400],url_for("blog_post",post_id=post_id)+"#questions"))
+            flash("دیدگاه ثبت شد.", "success")
+    return redirect(url_for("blog_post",post_id=post_id)+"#questions")
+
+@app.route("/academy/comments/<int:comment_id>/reply", methods=["POST"])
+@staff_required
+def reply_to_comment(comment_id):
+    if g.account["role"] not in CONTENT_ROLES:
+        abort(403)
+    reply = clean_text(request.form.get("reply_text",""),3000)
+    if not reply:
+        flash("متن پاسخ الزامی است.", "error")
+    else:
+        with connect_db() as db:
+            comment = db.execute("SELECT * FROM post_comments WHERE id=?", (comment_id,)).fetchone()
+            if not comment:
+                abort(404)
+            db.execute("UPDATE post_comments SET reply_text=?,replied_by=?,replied_at=CURRENT_TIMESTAMP WHERE id=?",
+                       (reply,g.account["username"],comment_id))
+            db.execute("INSERT INTO notifications(recipient_type,recipient_id,title,body,target_url) VALUES('account',?,?,?,?)",
+                       (comment["account_id"],"پاسخ جدید به دیدگاه",reply[:500],url_for("blog_post",post_id=comment["post_id"])+"#questions"))
+        flash("پاسخ ثبت شد.", "success")
+    return redirect(url_for("staff_dashboard")+"#academy-questions")
+
+@app.route("/academy/tags/create", methods=["POST"])
+@staff_required
+def create_academy_tag():
+    if g.account["role"] not in CONTENT_ROLES:
+        abort(403)
+    name = clean_text(request.form.get("name",""),40)
+    slug = "tag-"+hashlib.sha256(name.casefold().encode()).hexdigest()[:12]
+    if not name:
+        flash("نام برچسب الزامی است.", "error")
+    else:
+        try:
+            with connect_db() as db:
+                db.execute("INSERT INTO academy_tags(name,slug) VALUES(?,?)", (name,slug))
+            flash("برچسب ساخته شد.", "success")
+        except sqlite3.IntegrityError:
+            flash("این برچسب از قبل وجود دارد.", "error")
+    return redirect(url_for("staff_dashboard")+"#academy-tags")
+
+@app.route("/academy/editor", methods=["GET","POST"])
+@staff_required
 def blog_editor():
-    post_id = request.args.get("id", type=int)
+    if g.account["role"] not in CONTENT_ROLES:
+        abort(403)
+    post_id = request.args.get("id",type=int)
     with connect_db() as db:
         post = db.execute("SELECT * FROM posts WHERE id=?", (post_id,)).fetchone() if post_id else None
-        tags = db.execute("SELECT * FROM academy_tags ORDER BY name COLLATE NOCASE").fetchall()
-        selected_tag_ids = [row["tag_id"] for row in db.execute("SELECT tag_id FROM post_tags WHERE post_id=?", (post_id,)).fetchall()] if post_id else []
+        tags = db.execute("SELECT * FROM academy_tags ORDER BY name").fetchall()
+        selected_tag_ids = [r["tag_id"] for r in db.execute("SELECT tag_id FROM post_tags WHERE post_id=?", (post_id,)).fetchall()] if post_id else []
         if request.method == "POST":
-            title = request.form.get("title", "").strip()
-            summary = request.form.get("summary", "").strip()
-            cover_url = request.form.get("cover_url", "").strip()
-            content = bleach.clean(request.form.get("content", ""), tags=BLOG_TAGS, attributes=BLOG_ATTRS,
-                                   protocols=BLOG_PROTOCOLS, strip=True)
+            title = clean_text(request.form.get("title",""),180)
+            summary = clean_text(request.form.get("summary",""),500)
+            cover = request.form.get("cover_url","").strip()
+            content = bleach.clean(request.form.get("content",""),tags=BLOG_TAGS,attributes=BLOG_ATTRS,protocols=BLOG_PROTOCOLS,strip=True)
             published = 1 if request.form.get("published") == "1" else 0
-            selected_tag_ids = list({int(value) for value in request.form.getlist("tag_ids") if value.isdigit()})
-            if not title or not bleach.clean(content, tags=[], strip=True).strip():
-                flash("واردکردن عنوان و محتوای مقاله الزامی است؛ انتخاب تگ اختیاری است.", "error")
+            try:
+                selected_tag_ids = list({int(x) for x in request.form.getlist("tag_ids") if x.isdigit()})
+            except ValueError:
+                selected_tag_ids = []
+            if not title or not bleach.clean(content,tags=[],strip=True).strip():
+                flash("عنوان و محتوای مطلب الزامی است.", "error")
+            elif cover and not cover.startswith("https://"):
+                flash("آدرس کاور باید HTTPS باشد.", "error")
             elif post_id and post:
                 db.execute("UPDATE posts SET title=?,summary=?,cover_url=?,content=?,published=?,updated_at=CURRENT_TIMESTAMP WHERE id=?",
-                           (title, summary, cover_url, content, published, post_id))
+                           (title,summary,cover,content,published,post_id))
                 db.execute("DELETE FROM post_tags WHERE post_id=?", (post_id,))
                 for tag_id in selected_tag_ids:
-                    if db.execute("SELECT id FROM academy_tags WHERE id=?", (tag_id,)).fetchone():
-                        db.execute("INSERT OR IGNORE INTO post_tags(post_id,tag_id) VALUES(?,?)", (post_id, tag_id))
-                flash("مقاله به‌روزرسانی شد.", "success")
-                return redirect(url_for("dashboard") + "#academy-content")
+                    db.execute("INSERT OR IGNORE INTO post_tags(post_id,tag_id) SELECT ?,id FROM academy_tags WHERE id=?", (post_id,tag_id))
+                flash("مطلب به‌روزرسانی شد.", "success")
+                return redirect(url_for("staff_dashboard")+"#academy-content")
             else:
-                cur = db.execute("INSERT INTO posts(title,summary,cover_url,content,author,published) VALUES(?,?,?,?,?,?)",
-                                 (title, summary, cover_url, content, session["username"], published))
-                new_post_id = cur.lastrowid
+                new_id = db.execute("INSERT INTO posts(title,summary,content,cover_url,author,published) VALUES(?,?,?,?,?,?)",
+                    (title,summary,content,cover,g.account["username"],published)).lastrowid
                 for tag_id in selected_tag_ids:
-                    if db.execute("SELECT id FROM academy_tags WHERE id=?", (tag_id,)).fetchone():
-                        db.execute("INSERT OR IGNORE INTO post_tags(post_id,tag_id) VALUES(?,?)", (new_post_id, tag_id))
-                flash("مقاله ایجاد شد.", "success")
-                return redirect(url_for("dashboard") + "#academy-content")
-    return render_template("editor.html", post=post, tags=tags, selected_tag_ids=selected_tag_ids)
+                    db.execute("INSERT OR IGNORE INTO post_tags(post_id,tag_id) SELECT ?,id FROM academy_tags WHERE id=?", (new_id,tag_id))
+                flash("مطلب ساخته شد.", "success")
+                return redirect(url_for("staff_dashboard")+"#academy-content")
+    return render_template("editor.html",post=post,tags=tags,selected_tag_ids=selected_tag_ids)
 
 @app.route("/academy/<int:post_id>/delete", methods=["POST"])
-@permission_required("blog_manage")
+@staff_required
 def delete_post(post_id):
+    if g.account["role"] not in CONTENT_ROLES:
+        abort(403)
     with connect_db() as db:
         db.execute("DELETE FROM posts WHERE id=?", (post_id,))
-    flash("مقاله حذف شد.", "success")
-    return redirect(url_for("dashboard"))
+    flash("مطلب حذف شد.", "success")
+    return redirect(url_for("staff_dashboard")+"#academy-content")
+
+@app.route("/notifications/<int:notification_id>/read", methods=["POST"])
+@account_required
+def notification_read(notification_id):
+    with connect_db() as db:
+        item = db.execute("SELECT target_url FROM notifications WHERE id=? AND recipient_id=?", (notification_id,g.account["id"])).fetchone()
+        if item:
+            db.execute("UPDATE notifications SET is_read=1 WHERE id=? AND recipient_id=?", (notification_id,g.account["id"]))
+    return redirect(item["target_url"] if item else url_for("account_profile"))
+
+@app.errorhandler(403)
+def forbidden(_error):
+    return render_template("error.html", code=403, message="اجازه دسترسی به این بخش را ندارید."),403
+
+@app.errorhandler(404)
+def not_found(_error):
+    return render_template("error.html", code=404, message="صفحه موردنظر پیدا نشد."),404
+
+@app.errorhandler(400)
+def bad_request(error):
+    message = getattr(error,"description","درخواست نامعتبر است.")
+    return render_template("error.html",code=400,message=message),400
+
+init_db()
 
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=int(os.environ.get("PORT", "8080")), debug=False)
+    app.run(host="0.0.0.0",port=int(os.environ.get("PORT","8080")),debug=False)
