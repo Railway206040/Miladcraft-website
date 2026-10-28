@@ -311,7 +311,6 @@ def clean_text(value, limit=3000):
 
 @app.before_request
 def prepare_request():
-    init_db()
     g.account = None
     account_id = session.get("account_id")
     if account_id:
@@ -525,12 +524,14 @@ def staff_dashboard():
             conversation_data.append({"id":convo["id"],"kind":convo["kind"],"title":title,"messages":list(reversed(messages))})
         unread_count = db.execute("SELECT COUNT(*) FROM notifications WHERE recipient_id=? AND is_read=0", (g.account["id"],)).fetchone()[0]
         online_count = db.execute("SELECT COUNT(*) FROM staff_presence WHERE is_online=1").fetchone()[0]
+        builders = db.execute("SELECT id,username,display_name,role FROM accounts WHERE role='builder' ORDER BY username").fetchall()
+        joined_project_ids = {r["project_id"] for r in db.execute("SELECT project_id FROM project_members WHERE account_id=?", (g.account["id"],)).fetchall()}
         site_images = {r["setting_key"]:r["setting_value"] for r in db.execute("SELECT setting_key,setting_value FROM site_settings")}
     return render_template("dashboard.html", projects=projects, my_tasks=my_tasks, warnings=warnings,
         recent_warnings=recent_warnings, staff=staff, members=members, activity=activity,
         news_items=news_items, posts=posts, tags=tags, comments=comments,
-        conversations=conversation_data, unread_count=unread_count, online_count=online_count,
-        site_images=site_images, role_label=ROLE_LABELS.get(role,role), can_manage_projects=role in PROJECT_MANAGERS,
+        conversations=conversation_data, unread_count=unread_count, online_count=online_count, builders=builders,
+        joined_project_ids=joined_project_ids, site_images=site_images, role_label=ROLE_LABELS.get(role,role), can_manage_projects=role in PROJECT_MANAGERS,
         can_warn=role in WARNING_ROLES, can_manage_staff=role in MASTER_ROLES, can_manage_content=role in CONTENT_ROLES)
 
 @app.route("/staff/change-password", methods=["POST"])
