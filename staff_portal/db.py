@@ -49,6 +49,10 @@ def ensure_schema():
           due_date TEXT, created_by TEXT NOT NULL, created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
           updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP);
         CREATE INDEX IF NOT EXISTS idx_build_tasks_assignee ON build_tasks(assigned_to,status);
+        CREATE TABLE IF NOT EXISTS project_members (
+          project_id INTEGER NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+          staff_id INTEGER NOT NULL, joined_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+          PRIMARY KEY(project_id,staff_id));
         CREATE TABLE IF NOT EXISTS staff_activity (
           id INTEGER PRIMARY KEY AUTOINCREMENT, staff_id INTEGER NOT NULL, username TEXT NOT NULL,
           event_type TEXT NOT NULL, details TEXT NOT NULL DEFAULT '', occurred_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP);
