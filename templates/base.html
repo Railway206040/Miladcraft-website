@@ -3,9 +3,9 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="theme-color" content="#090d14">
-  <meta name="description" content="{% block description %}وب‌سایت رسمی سرور ماینکرفت MILAD CRAFT؛ رول‌پلی، اخبار، آموزش و پنل بازیکنان و کارکنان.{% endblock %}">
-  <title>{% block title %}MILAD CRAFT | سرور ماینکرفت{% endblock %}</title>
+  <meta name="theme-color" content="#080d18">
+  <meta name="description" content="{% block description %}وب‌سایت رسمی MILAD CRAFT؛ دنیای رول‌پلی ماینکرفت، اخبار، آموزش و جامعه بازیکنان.{% endblock %}">
+  <title>{% block title %}MILAD CRAFT | دنیای تو، داستان تو{% endblock %}</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Vazirmatn:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
@@ -13,26 +13,26 @@
   {% block head %}{% endblock %}
 </head>
 <body>
-  <div class="ambient ambient-one"></div><div class="ambient ambient-two"></div>
+  <div class="site-noise" aria-hidden="true"></div>
   <header class="site-header">
     <a class="brand" href="{{ url_for('index') }}" aria-label="صفحه اصلی MILAD CRAFT">
-      <img src="{{ site_images.get('site_logo') or url_for('static', filename='logo.svg') }}" alt="" class="brand-mark">
-      <span class="brand-name">MILAD<span>CRAFT</span></span>
+      <span class="brand-mark-wrap"><img src="{{ site_images.get('site_logo') or url_for('static', filename='logo.svg') }}" alt="" class="brand-mark"></span>
+      <span class="brand-name">MILAD<span>CRAFT</span><small>YOUR WORLD. YOUR STORY.</small></span>
     </a>
-    <button class="mobile-nav-toggle" type="button" aria-label="باز کردن منو" onclick="document.body.classList.toggle('nav-open')"><span></span><span></span><span></span></button>
+    <button class="mobile-nav-toggle" type="button" aria-label="باز کردن منو" aria-expanded="false" onclick="document.body.classList.toggle('nav-open');this.setAttribute('aria-expanded',document.body.classList.contains('nav-open'))"><span></span><span></span><span></span></button>
     <nav class="site-nav" aria-label="ناوبری اصلی">
-      <a href="{{ url_for('index') }}">خانه</a>
-      <a href="{{ url_for('news_page') }}">اخبار</a>
-      <a href="{{ url_for('academy') }}">مرکز آموزش</a>
-      <a href="{{ telegram_url }}" target="_blank" rel="noopener noreferrer">تلگرام</a>
+      <a href="{{ url_for('index') }}" class="{% if request.endpoint=='index' %}nav-current{% endif %}">خانه</a>
+      <a href="{{ url_for('news_page') }}" class="{% if request.endpoint in ['news_page','news_detail'] %}nav-current{% endif %}">اخبار</a>
+      <a href="{{ url_for('academy') }}" class="{% if request.endpoint in ['academy','blog_post'] %}nav-current{% endif %}">آموزش</a>
+      <a href="{{ telegram_url }}" target="_blank" rel="noopener noreferrer">جامعه تلگرام <span class="external-arrow">↗</span></a>
     </nav>
     <div class="header-actions">
       {% if current_account %}
-        {% if current_account['role'] != 'player' %}<a class="button button-quiet button-small" href="{{ url_for('staff_dashboard') }}">پنل کارکنان</a>{% endif %}
-        <a class="button button-primary button-small" href="{{ url_for('account_profile') }}">پروفایل</a>
+        {% if current_account['role'] != 'player' %}<a class="button button-quiet button-small" href="{{ url_for('staff_dashboard') }}">فضای کارکنان</a>{% endif %}
+        <a class="button button-primary button-small" href="{{ url_for('account_profile') }}">حساب من <span class="button-arrow">←</span></a>
       {% else %}
         <a class="button button-quiet button-small hide-mobile" href="{{ url_for('account_login') }}">ورود</a>
-        <a class="button button-primary button-small" href="{{ url_for('account_register') }}">ساخت حساب</a>
+        <a class="button button-primary button-small" href="{{ url_for('account_register') }}">شروع بازی <span class="button-arrow">←</span></a>
       {% endif %}
     </div>
   </header>
@@ -41,11 +41,16 @@
   {% endwith %}
   <main class="page-shell">{% block content %}{% endblock %}</main>
   <footer class="site-footer">
-    <a class="brand brand-footer" href="{{ url_for('index') }}"><img src="{{ site_images.get('site_logo') or url_for('static', filename='logo.svg') }}" alt="" class="brand-mark"><span class="brand-name">MILAD<span>CRAFT</span></span></a>
-    <p>یک جهان تازه، یک جامعه واقعی.</p>
-    <div class="footer-links"><a href="{{ url_for('news_page') }}">اخبار</a><a href="{{ url_for('academy') }}">آموزش</a><a href="{{ telegram_url }}" target="_blank" rel="noopener noreferrer">کانال تلگرام</a></div>
-    <small>© {{ 2026 }} MILAD CRAFT · تمامی حقوق محفوظ است.</small>
+    <div class="footer-main">
+      <a class="brand brand-footer" href="{{ url_for('index') }}"><span class="brand-mark-wrap"><img src="{{ site_images.get('site_logo') or url_for('static', filename='logo.svg') }}" alt="" class="brand-mark"></span><span class="brand-name">MILAD<span>CRAFT</span><small>YOUR WORLD. YOUR STORY.</small></span></a>
+      <p>یک جهان تازه؛ داستانی که با انتخاب تو ساخته می‌شود.</p>
+      <a class="footer-server" href="{{ telegram_url }}" target="_blank" rel="noopener noreferrer">به جامعه ما بپیوند <span>↗</span></a>
+    </div>
+    <div class="footer-bottom"><div class="footer-links"><a href="{{ url_for('news_page') }}">اخبار</a><a href="{{ url_for('academy') }}">مرکز آموزش</a><a href="{{ url_for('account_portal') }}">حساب کاربری</a><a href="{{ telegram_url }}" target="_blank" rel="noopener noreferrer">تلگرام</a></div><small>© 2026 MILAD CRAFT · ساخته‌شده برای جامعه</small></div>
   </footer>
   {% block scripts %}{% endblock %}
+  <script>
+    document.querySelectorAll('[data-copy]').forEach(function(button){button.addEventListener('click',async function(){const value=button.dataset.copy||'';try{await navigator.clipboard.writeText(value);const old=button.innerHTML;button.innerHTML='کپی شد ✓';button.classList.add('copy-success');setTimeout(()=>{button.innerHTML=old;button.classList.remove('copy-success')},1600)}catch(e){window.prompt('آدرس سرور را کپی کنید',value)}})});
+  </script>
 </body>
 </html>
