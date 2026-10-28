@@ -75,8 +75,12 @@ class MiladCraftWebsiteTests(unittest.TestCase):
         login = self.client.post("/account/login", data={
             "username": "promote_me", "password": "Strong-Player-Password-2026!"
         }, follow_redirects=False)
-        self.assertIn("/staff", login.headers["Location"])
+        self.assertIn("/account/profile", login.headers["Location"])
+        profile = self.client.get("/account/profile")
+        self.assertEqual(profile.status_code, 200)
+        self.assertIn("داشبورد کارکنان", profile.get_data(as_text=True))
         self.assertEqual(self.client.get("/staff").status_code, 200)
+        self.assertEqual(self.client.get("/staff?section=projects").status_code, 200)
 
     def test_project_capacity_and_builder_join(self):
         self.login()
