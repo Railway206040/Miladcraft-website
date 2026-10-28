@@ -57,7 +57,14 @@ def home():
         conversations = []
         for convo in raw_conversations:
             convo_messages = db.execute("SELECT m.*,s.username AS sender FROM staff_messages m LEFT JOIN staff s ON s.id=m.sender_id WHERE m.conversation_id=? ORDER BY m.id DESC LIMIT 40", (convo["id"],)).fetchall()
-            conversations.append({"id":convo["id"],"title":convo["title"],"kind":convo["kind"],"messages":list(reversed(convo_messages))})
+            title = convo["title"]
+            if convo["kind"] == "private":
+                other = db.execute("""SELECT s.username FROM staff_conversation_members m
+                    JOIN staff s ON s.id=m.staff_id WHERE m.conversation_id=? AND m.staff_id<>? LIMIT 1""",
+                    (convo["id"], staff_id)).fetchone()
+                if other:
+                    title = "پیام خصوصی با " + other["username"]
+            conversations.append({"id":convo["id"],"title":title,"kind":convo["kind"],"messages":list(reversed(convo_messages))})
         online_count = db.execute("SELECT COUNT(*) FROM staff_presence WHERE is_online=1").fetchone()[0]
     return render_template("workspace.html", page="home", role=role, role_label=ROLES.get(role,role.title()), projects=projects, tasks=tasks, activity=activity, warnings=warnings, staff=staff, profile=profile, presence=presence, pending=pending, conversations=conversations, online_count=online_count, status="pending")
 
