@@ -176,11 +176,14 @@ def robots_txt():
 @app.route("/sitemap.xml")
 def sitemap_xml():
     base = request.url_root.rstrip("/")
-    urls = [base + "/", base + url_for("academy")]
+    urls = [base + "/", base + url_for("academy"), base + url_for("news_page")]
     with connect_db() as db:
         rows = db.execute("SELECT id FROM posts WHERE published=1 ORDER BY id DESC").fetchall()
+        news_rows = db.execute("SELECT id FROM news WHERE published=1 ORDER BY id DESC").fetchall()
     urls.extend(base + url_for("blog_post", post_id=row["id"]) for row in rows)
-    entries = "".join("<url><loc>" + url + "</loc></url>" for url in urls)
+    urls.extend(base + url_for("news_detail", news_id=row["id"]) for row in news_rows)
+    from xml.sax.saxutils import escape
+    entries = "".join("<url><loc>" + escape(url) + "</loc></url>" for url in urls)
     xml = '<?xml version="1.0" encoding="UTF-8"?><urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">' + entries + "</urlset>"
     return app.response_class(xml, mimetype="application/xml")
 
