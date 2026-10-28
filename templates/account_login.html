@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <meta name="robots" content="noindex,follow">
-<title>ورود بازیکنان | MILAD CRAFT</title>
+<title>ورود به حساب | MILAD CRAFT</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="{{ url_for('static',filename='style.css') }}">
@@ -43,14 +43,14 @@
 <main class="account-shell account-shell-login">
   <section class="account-art">
     <p class="eyebrow">WELCOME BACK</p>
-    <h1>خوش برگشتی به دنیای میلادکرفت.</h1>
-    <p>با حساب کاربری بازیکن وارد شوید تا مشخصات پروفایل خود را ویرایش کنید و در گفت‌وگوهای آکادمی حضور داشته باشید.</p>
+    <h1>خوش آمدید؛ به حساب خود وارد شوید.</h1>
+    <p>با یک نام کاربری وارد شوید. اگر دسترسی استف برای این حساب فعال شده باشد، پنل متناسب با نقش شما باز می‌شود.</p>
     <div class="account-art-mark">MC<span>COMMUNITY</span></div>
   </section>
 
   <section class="account-card">
-    <p class="eyebrow">PLAYER ACCOUNT</p>
-    <h2>ورود بازیکنان</h2>
+    <p class="eyebrow">MILAD CRAFT ACCOUNT</p>
+    <h2>ورود به حساب کاربری</h2>
     {% with messages = get_flashed_messages(with_categories=true) %}
       {% for category,message in messages %}
         <div class="notice {{ category }}">{{ message }}</div>
@@ -67,7 +67,7 @@
       <button class="button button-large full" type="submit">ورود به حساب کاربری</button>
     </form>
 
-    <p class="account-switch">حساب کاربری ندارید؟ <a href="{{ url_for('account_register') }}">ثبت‌نام بازیکن جدید</a></p>
+    <p class="account-switch">هنوز حساب ندارید؟ <a href="{{ url_for('account_register') }}">ساخت حساب جدید</a></p>
     <p class="account-switch staff-switch">برای انتخاب نوع دسترسی، به <a href="{{ url_for('account_portal') }}">دروازه ورود و عضویت</a> برگردید.</p>
   </section>
 </main>
