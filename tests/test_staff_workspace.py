@@ -111,6 +111,29 @@ class StaffWorkspaceTests(unittest.TestCase):
             events = db.execute("SELECT COUNT(*) FROM staff_activity WHERE username='minecraft_builder' AND event_type LIKE 'minecraft_%'").fetchone()[0]
             self.assertEqual(events, 2)
 
+    def test_project_capacity_is_enforced_for_builders(self):
+        with site.connect_db() as db:
+            builder_id = db.execute("INSERT INTO staff(username,password_hash,role) VALUES(?,?,?)",
+                ("capacity_builder", site.generate_password_hash("Builder-Password-2026!"), "builder")).lastrowid
+        self.client.post("/account/login", data={
+            "username": "test_owner", "password": "Test-Owner-Password-2026!"
+        })
+        created = self.client.post("/workspace/projects/create", data={
+            "title": "Spawn Build", "description": "Build the new spawn", "required_builders": "1"
+        }, follow_redirects=False)
+        self.assertIn(created.status_code, (302, 303))
+        with site.connect_db() as db:
+            project = db.execute("SELECT id FROM projects WHERE title='Spawn Build'").fetchone()
+        with self.client.session_transaction() as sess:
+            sess.update(staff_id=builder_id, username="capacity_builder", role="builder")
+        joined = self.client.post(f"/workspace/projects/{project['id']}/join", follow_redirects=False)
+        self.assertIn(joined.status_code, (302, 303))
+        with site.connect_db() as db:
+            state = db.execute("SELECT status FROM projects WHERE id=?", (project["id"],)).fetchone()
+            count = db.execute("SELECT COUNT(*) FROM project_members WHERE project_id=?", (project["id"],)).fetchone()[0]
+        self.assertEqual(state["status"], "Full")
+        self.assertEqual(count, 1)
+
     def test_unsupported_application_role_is_rejected(self):
         response = self.client.post("/workspace/apply", data={
             "username": "new_owner", "display_name": "Bad Request", "age": "20",
