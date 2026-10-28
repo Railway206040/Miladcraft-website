@@ -729,7 +729,7 @@ def promote_member():
             group = db.execute("SELECT id FROM conversations WHERE kind='group' AND title='گروه کارکنان' LIMIT 1").fetchone()
             if group:
                 db.execute("INSERT OR IGNORE INTO conversation_members(conversation_id,account_id) VALUES(?,?)", (group["id"],target["id"]))
-            db.execute("INSERT INTO notifications(recipient_id,title,body,target_url) VALUES(?,?,?,?)",
+            db.execute("INSERT INTO notifications(recipient_type,recipient_id,title,body,target_url) VALUES('account',?,?,?,?)",
                        (target["id"],"دسترسی کارکنان فعال شد","نقش جدید شما: "+ROLE_LABELS[role],url_for("staff_dashboard")))
             flash(f"دسترسی {ROLE_LABELS[role]} برای {target['username']} فعال شد.", "success")
     return redirect(url_for("staff_dashboard")+"#staff-accounts")
@@ -942,7 +942,7 @@ def academy_comment(post_id):
                 pass
             else:
                 for manager in db.execute("SELECT id FROM accounts WHERE role IN ('owner','developer','admin','manager')").fetchall():
-                    db.execute("INSERT INTO notifications(recipient_id,title,body,target_url) VALUES(?,?,?,?)",
+                    db.execute("INSERT INTO notifications(recipient_type,recipient_id,title,body,target_url) VALUES('account',?,?,?,?)",
                         (manager["id"],"دیدگاه جدید",body[:400],url_for("blog_post",post_id=post_id)+"#questions"))
             flash("دیدگاه ثبت شد.", "success")
     return redirect(url_for("blog_post",post_id=post_id)+"#questions")
@@ -962,7 +962,7 @@ def reply_to_comment(comment_id):
                 abort(404)
             db.execute("UPDATE post_comments SET reply_text=?,replied_by=?,replied_at=CURRENT_TIMESTAMP WHERE id=?",
                        (reply,g.account["username"],comment_id))
-            db.execute("INSERT INTO notifications(recipient_id,title,body,target_url) VALUES(?,?,?,?)",
+            db.execute("INSERT INTO notifications(recipient_type,recipient_id,title,body,target_url) VALUES('account',?,?,?,?)",
                        (comment["account_id"],"پاسخ جدید به دیدگاه",reply[:500],url_for("blog_post",post_id=comment["post_id"])+"#questions"))
         flash("پاسخ ثبت شد.", "success")
     return redirect(url_for("staff_dashboard")+"#academy-questions")
