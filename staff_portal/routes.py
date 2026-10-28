@@ -193,7 +193,8 @@ def projects():
             LEFT JOIN project_members pm ON pm.project_id=p.id
             GROUP BY p.id ORDER BY p.id DESC""").fetchall()
         staff=db.execute("SELECT username,role FROM staff ORDER BY username").fetchall()
-    return render_template("workspace.html",page="projects",projects=projects,staff=staff,role=session.get("role","").lower(),role_label=ROLES.get(session.get("role","").lower(),""))
+        joined_project_ids={row["project_id"] for row in db.execute("SELECT project_id FROM project_members WHERE staff_id=?",(session["staff_id"],)).fetchall()}
+    return render_template("workspace.html",page="projects",projects=projects,staff=staff,joined_project_ids=joined_project_ids,role=session.get("role","").lower(),role_label=ROLES.get(session.get("role","").lower(),""))
 
 
 @portal.route("/projects/<int:project_id>/tasks/create",methods=["POST"])
