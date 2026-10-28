@@ -2749,3 +2749,14 @@ input::placeholder, textarea::placeholder { color: #778aa4; }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { scroll-behavior: auto !important; transition-duration: .01ms !important; animation-duration: .01ms !important; }
 }
+
+/* Small fixes from the UI review */
+.mode-pill, .hero-trust span, .mode-status { font-family: var(--font-persian); }
+.hero-image { background-color: #0d1524; }
+.news-home-card, .mini-post { color: #e2e8f0; }
+.news-home-card:hover, .mini-post:hover { color: #fff; }
+@media (max-width: 768px) {
+  .topbar { position: sticky; }
+  .main-nav.open { display: flex; }
+  .hero-image::after { background: linear-gradient(180deg,rgba(8,13,24,.82),rgba(8,13,24,.68) 45%,rgba(8,13,24,.94)); }
+}
