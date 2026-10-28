@@ -96,6 +96,9 @@ def _add_column(db, table, name, definition):
 
 def init_db():
     with connect_db() as db:
+        notification_table = db.execute("SELECT sql FROM sqlite_master WHERE type='table' AND name='notifications'").fetchone()
+        if notification_table and "CHECK(recipient_type IN ('member','staff'))" in (notification_table["sql"] or "") and not db.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name='legacy_notifications'").fetchone():
+            db.execute("ALTER TABLE notifications RENAME TO legacy_notifications")
         if db.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name='post_comments'").fetchone():
             if "account_id" not in _columns(db, "post_comments") and not db.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name='legacy_post_comments'").fetchone():
                 db.execute("ALTER TABLE post_comments RENAME TO legacy_post_comments")
@@ -253,15 +256,17 @@ def init_db():
                 if account:
                     db.execute("INSERT OR IGNORE INTO post_feedback(post_id,account_id,vote,created_at) VALUES(?,?,?,?)",
                         (old["post_id"],account["id"],old["vote"],old["created_at"]))
-        if "recipient_type" in _columns(db,"notifications"):
-            for old in db.execute("SELECT * FROM notifications").fetchall():
+        if db.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name='legacy_notifications'").fetchone():
+            for old in db.execute("SELECT * FROM legacy_notifications").fetchall():
                 if old["recipient_type"] in ("member","staff"):
                     legacy_table = "members" if old["recipient_type"] == "member" else "staff"
                     if db.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name=?", (legacy_table,)).fetchone():
                         legacy_account = db.execute("SELECT username FROM " + legacy_table + " WHERE id=?", (old["recipient_id"],)).fetchone()
                         target_account = db.execute("SELECT id FROM accounts WHERE username=? COLLATE NOCASE", (legacy_account["username"],)).fetchone() if legacy_account else None
                         if target_account:
-                            db.execute("UPDATE notifications SET recipient_type='account',recipient_id=? WHERE id=?", (target_account["id"],old["id"]))
+                            db.execute("""INSERT OR IGNORE INTO notifications(id,recipient_type,recipient_id,title,body,target_url,is_read,created_at)
+                                VALUES(?, 'account', ?, ?, ?, ?, ?, ?)""",
+                                (old["id"],target_account["id"],old["title"],old["body"],old["target_url"],old["is_read"],old["created_at"]))
         # Migrate old project claims to the new many-builder membership table.
         if "claimed_by" in _columns(db, "projects"):
             for row in db.execute("SELECT id,claimed_by FROM projects WHERE claimed_by IS NOT NULL AND claimed_by<>''").fetchall():
