@@ -80,7 +80,7 @@ class MiladCraftWebsiteTests(unittest.TestCase):
         self.assertEqual(profile.status_code, 200)
         profile_html = profile.get_data(as_text=True)
         self.assertIn("داشبورد کارکنان", profile_html)
-        self.assertLess(profile_html.index("profile-staff-entry"), profile_html.index("profile-layout"))
+        self.assertLess(profile_html.index("staff-dashboard-entry"), profile_html.index("profile-layout"))
         self.assertEqual(self.client.get("/staff").status_code, 200)
         self.assertEqual(self.client.get("/staff?section=projects").status_code, 200)
         removed_tasks = self.client.get("/staff?section=tasks").get_data(as_text=True)

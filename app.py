@@ -71,13 +71,13 @@ BLOG_PROTOCOLS = ["http", "https", "mailto"]
 
 IMAGE_DEFAULTS = {
     "site_logo": "",
-    "hero_image": "https://www.minecraft.net/content/dam/games/minecraft/key-art/MCV_The_Bogged_1920x1080.jpg",
-    "about_image": "https://www.minecraft.net/content/dam/games/minecraft/key-art/MCV_The_Creaking_1920x1080.jpg",
-    "roleplay_image": "https://www.minecraft.net/content/dam/games/minecraft/key-art/MCV_Trial_Chambers_1920x1080.jpg",
-    "survival_image": "https://www.minecraft.net/content/dam/games/minecraft/key-art/MCV_BambooJungle_1920x1080.jpg",
-    "gallery_image_1": "https://www.minecraft.net/content/dam/games/minecraft/key-art/MCV_The_Creaking_1920x1080.jpg",
-    "gallery_image_2": "https://www.minecraft.net/content/dam/games/minecraft/key-art/MCV_Trial_Chambers_1920x1080.jpg",
-    "gallery_image_3": "https://www.minecraft.net/content/dam/games/minecraft/key-art/MCV_The_Bogged_1920x1080.jpg",
+    "hero_image": "/static/images/minecraft-world.svg",
+    "about_image": "/static/images/minecraft-forest.svg",
+    "roleplay_image": "/static/images/minecraft-village.svg",
+    "survival_image": "/static/images/minecraft-forest.svg",
+    "gallery_image_1": "/static/images/minecraft-village.svg",
+    "gallery_image_2": "/static/images/minecraft-night.svg",
+    "gallery_image_3": "/static/images/minecraft-world.svg",
 }
 
 def connect_db():
@@ -278,10 +278,44 @@ def init_db():
                     db.execute("INSERT OR IGNORE INTO project_members(project_id,account_id) VALUES(?,?)", (row["id"], account["id"]))
         for key, value in IMAGE_DEFAULTS.items():
             db.execute("INSERT OR IGNORE INTO site_settings(setting_key,setting_value) VALUES(?,?)", (key, value))
-        # Replace only the previous built-in stock-photo defaults; preserve images customized by staff.
-        legacy_image_defaults = {"hero_image":"https://images.unsplash.com/photo-1542751371-adc38448a05e?auto=format&fit=crop&w=1800&q=85","about_image":"https://images.unsplash.com/photo-1511512578047-dfb367046420?auto=format&fit=crop&w=1000&q=85","roleplay_image":"https://images.unsplash.com/photo-1493711662062-fa5416f8d4db?auto=format&fit=crop&w=1100&q=85","survival_image":"https://images.unsplash.com/photo-1580234811497-9df7fd2f357e?auto=format&fit=crop&w=1100&q=85","gallery_image_1":"https://images.unsplash.com/photo-1511512578047-dfb367046420?auto=format&fit=crop&w=1200&q=85","gallery_image_2":"https://images.unsplash.com/photo-1542751371-adc38448a05e?auto=format&fit=crop&w=800&q=85","gallery_image_3":"https://images.unsplash.com/photo-1493711662062-fa5416f8d4db?auto=format&fit=crop&w=800&q=85"}
-        for key, old_value in legacy_image_defaults.items():
-            db.execute("UPDATE site_settings SET setting_value=? WHERE setting_key=? AND setting_value=?", (IMAGE_DEFAULTS[key], key, old_value))
+        # Migrate only known built-in remote defaults to local artwork; keep staff-customized URLs intact.
+        legacy_image_defaults = {
+            "hero_image": [
+                "https://images.unsplash.com/photo-1542751371-adc38448a05e?auto=format&fit=crop&w=1800&q=85",
+                "https://www.minecraft.net/content/dam/games/minecraft/key-art/MCV_The_Bogged_1920x1080.jpg",
+            ],
+            "about_image": [
+                "https://images.unsplash.com/photo-1511512578047-dfb367046420?auto=format&fit=crop&w=1000&q=85",
+                "https://www.minecraft.net/content/dam/games/minecraft/key-art/MCV_The_Creaking_1920x1080.jpg",
+            ],
+            "roleplay_image": [
+                "https://images.unsplash.com/photo-1493711662062-fa5416f8d4db?auto=format&fit=crop&w=1100&q=85",
+                "https://www.minecraft.net/content/dam/games/minecraft/key-art/MCV_Trial_Chambers_1920x1080.jpg",
+            ],
+            "survival_image": [
+                "https://images.unsplash.com/photo-1580234811497-9df7fd2f357e?auto=format&fit=crop&w=1100&q=85",
+                "https://www.minecraft.net/content/dam/games/minecraft/key-art/MCV_BambooJungle_1920x1080.jpg",
+            ],
+            "gallery_image_1": [
+                "https://images.unsplash.com/photo-1511512578047-dfb367046420?auto=format&fit=crop&w=1200&q=85",
+                "https://www.minecraft.net/content/dam/games/minecraft/key-art/MCV_The_Creaking_1920x1080.jpg",
+            ],
+            "gallery_image_2": [
+                "https://images.unsplash.com/photo-1542751371-adc38448a05e?auto=format&fit=crop&w=800&q=85",
+                "https://www.minecraft.net/content/dam/games/minecraft/key-art/MCV_Trial_Chambers_1920x1080.jpg",
+            ],
+            "gallery_image_3": [
+                "https://images.unsplash.com/photo-1493711662062-fa5416f8d4db?auto=format&fit=crop&w=800&q=85",
+                "https://www.minecraft.net/content/dam/games/minecraft/key-art/MCV_The_Bogged_1920x1080.jpg",
+            ],
+        }
+        for key, old_values in legacy_image_defaults.items():
+            if key in IMAGE_DEFAULTS:
+                for old_value in old_values:
+                    db.execute(
+                        "UPDATE site_settings SET setting_value=? WHERE setting_key=? AND setting_value=?",
+                        (IMAGE_DEFAULTS[key], key, old_value),
+                    )
         group = db.execute("SELECT id FROM conversations WHERE kind='group' AND title='گروه کارکنان' LIMIT 1").fetchone()
         if not group:
             group_id = db.execute("INSERT INTO conversations(kind,title) VALUES('group','گروه کارکنان')").lastrowid
