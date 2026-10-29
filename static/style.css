@@ -396,3 +396,33 @@ h1,h2,h3,h4,p,a,small,b,strong,span,code{overflow-wrap:anywhere}
   .mc-section{padding-inline:10px}
   .mc-telegram-card{padding:18px 14px}
 }
+
+
+/* Reliable mobile header layout and always-visible homepage fallback covers */
+@media(max-width:760px){
+ .site-header{display:grid;grid-template-columns:minmax(0,1fr) 39px auto;grid-template-areas:"brand toggle actions" "nav nav nav";align-items:center;gap:9px;padding:10px 12px}
+ .site-header>.brand{grid-area:brand;min-width:0;gap:8px}
+ .site-header .brand-mark-wrap{flex:0 0 36px;width:36px;height:36px;border-radius:11px}
+ .site-header .brand-mark{width:29px;height:29px}
+ .site-header .brand-name{min-width:0;font-size:12px;letter-spacing:.5px;line-height:1.2}
+ .site-header .brand-name small{font-size:6px;letter-spacing:.7px;margin-top:4px}
+ .site-header>.mobile-nav-toggle{grid-area:toggle;width:39px;height:39px;min-width:39px}
+ .site-header>.site-nav{grid-area:nav;grid-column:1/-1;grid-row:auto;min-width:0;width:100%}
+ .site-header>.header-actions{grid-area:actions;min-width:0;max-width:100%;gap:0}
+ .site-header .header-auth-button,.site-header .header-actions>.button{max-width:100%;min-width:0;padding:8px 9px;font-size:10px;gap:4px;white-space:normal;text-align:center;line-height:1.35}
+ .site-header .header-actions .button-arrow{display:none}
+ .nav-open .site-nav{display:flex}
+ .mc-empty-learning-cover{display:grid;grid-template-columns:minmax(0,1fr);gap:0;align-items:stretch;overflow:hidden;padding:0!important}
+ .mc-empty-learning-cover>.mc-learning-image,.mc-empty-learning-cover>.mc-news-image{width:100%;min-height:0;height:auto;aspect-ratio:16/9}
+ .mc-empty-learning-copy{min-width:0;padding:16px}
+ .mc-empty-learning-copy>b{display:block;font-size:.95rem;line-height:1.8}
+ .mc-empty-learning-copy>p{font-size:.82rem;line-height:1.9;margin:6px 0 10px}
+ .mc-empty-learning-copy>a{display:inline-flex;max-width:100%;white-space:normal;overflow-wrap:anywhere}
+}
+@media(max-width:390px){
+ .site-header{grid-template-columns:minmax(0,1fr) 35px auto;gap:6px;padding-inline:8px}
+ .site-header>.mobile-nav-toggle{width:35px;min-width:35px;height:36px}
+ .site-header .brand-name{font-size:11px}
+ .site-header .brand-name small{font-size:5.5px}
+ .site-header .header-auth-button,.site-header .header-actions>.button{font-size:9px;padding:7px 7px}
+}
