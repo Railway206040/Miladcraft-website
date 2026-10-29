@@ -426,3 +426,84 @@ h1,h2,h3,h4,p,a,small,b,strong,span,code{overflow-wrap:anywhere}
  .site-header .brand-name small{font-size:5.5px}
  .site-header .header-auth-button,.site-header .header-actions>.button{font-size:9px;padding:7px 7px}
 }
+
+
+/* Final responsive fixes: account forms and separated cover labels */
+.mc-learning-image,.mc-news-image{position:relative;isolation:isolate}
+.mc-learning-image .mc-cover-brand,.mc-news-image .mc-cover-brand{
+ position:absolute;inset:0;display:grid;place-items:center;width:100%;max-width:none;
+ padding:18px 22px;text-align:center;line-height:1.5;letter-spacing:0;
+ font-size:clamp(18px,2.6vw,28px);font-weight:900;pointer-events:none;
+}
+.mc-learning-image>span:last-child,.mc-news-image>span:last-child{
+ z-index:3;right:12px;bottom:12px;max-width:calc(100% - 24px);
+}
+.mc-empty-learning-cover{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);align-items:stretch;gap:0;overflow:hidden}
+.mc-empty-learning-cover>.mc-learning-image,.mc-empty-learning-cover>.mc-news-image{width:100%;height:100%;min-width:0;aspect-ratio:16/9;align-self:stretch}
+.mc-empty-learning-copy{min-width:0;display:flex;flex-direction:column;justify-content:center;padding:clamp(18px,3vw,34px)}
+.mc-empty-learning-copy>b{line-height:1.8;overflow-wrap:anywhere}
+.mc-empty-learning-copy>p{line-height:2;overflow-wrap:anywhere}
+.register-experience,.login-experience{width:100%;min-width:0}
+.register-grid,.login-grid,.register-form-side,.login-form-side,.register-form-card,.login-form-card{min-width:0;max-width:100%}
+.register-form-card h1,.login-form-card h1{overflow-wrap:anywhere;word-break:normal}
+.register-lead,.login-lead,.login-security-note p,.register-trust{overflow-wrap:anywhere;line-height:1.95}
+.register-field{display:grid;gap:7px;min-width:0;max-width:100%}
+.register-field>span{display:flex;flex-wrap:wrap;align-items:baseline;gap:5px;line-height:1.8}
+.register-field input,.password-input-wrap,.password-input-wrap input{min-width:0;max-width:100%;width:100%}
+.password-input-wrap{display:flex;align-items:stretch;gap:5px}
+.password-input-wrap input{flex:1 1 auto}
+.password-toggle{flex:0 0 auto;white-space:nowrap;padding-inline:10px}
+.login-bottom,.auth-bottom{line-height:2.1;overflow-wrap:anywhere}
+@media(max-width:900px){
+ .register-grid{grid-template-columns:minmax(0,1fr)}
+ .login-grid{grid-template-columns:minmax(0,1fr)}
+ .register-showcase,.login-showcase{min-width:0;width:100%;min-height:280px;max-height:330px}
+ .register-form-side,.login-form-side{width:100%;padding:clamp(18px,4vw,30px)}
+ .login-showcase-copy{right:clamp(16px,4vw,28px);left:clamp(16px,4vw,28px);bottom:24px}
+ .login-floating-chip{display:none}
+}
+@media(max-width:600px){
+ .register-experience,.login-experience{padding:10px 0 35px}
+ .register-back,.login-back{font-size:12px;line-height:1.9;margin-bottom:12px}
+ .register-grid,.login-showcase,.login-form-side{border-radius:18px}
+ .register-grid{gap:0}
+ .register-showcase{min-height:245px;max-height:none;height:auto}
+ .login-showcase{min-height:250px;max-height:none;height:auto}
+ .register-showcase-top,.login-showcase-top{top:13px;right:13px;left:13px;gap:8px;flex-wrap:wrap}
+ .register-status{max-width:calc(100% - 48px);font-size:clamp(7px,2.1vw,10px);white-space:normal;line-height:1.6;text-align:left}
+ .register-showcase-copy,.login-showcase-copy{right:16px;left:16px;bottom:18px}
+ .register-showcase-copy h2{font-size:clamp(29px,8vw,38px);line-height:1.35;letter-spacing:-.5px;margin:8px 0}
+ .login-showcase-copy h2{font-size:clamp(29px,8vw,38px);line-height:1.35;margin:8px 0}
+ .register-showcase-copy p,.login-showcase-copy p{font-size:12px;line-height:1.9;margin:0;max-width:100%}
+ .register-world-stats,.login-showcase-stats{gap:18px;margin-top:10px;flex-wrap:wrap}
+ .register-world-stats b,.login-showcase-stats b{font-size:12px}
+ .register-form-side,.login-form-side{padding:22px 16px;border-radius:18px}
+ .register-form-card,.login-form-card{width:100%;max-width:none}
+ .register-card-brand{gap:9px;margin-bottom:17px}
+ .register-card-brand img{width:40px;height:40px;flex:0 0 40px}
+ .register-card-brand>div small{font-size:10px;line-height:1.8}
+ .register-form-card h1,.login-form-card h1{font-size:clamp(23px,6.5vw,29px);line-height:1.65;letter-spacing:0;margin-top:14px}
+ .register-lead,.login-lead{font-size:12px;line-height:2;margin-bottom:18px}
+ .register-form,.login-form{gap:13px}
+ .register-password-grid{grid-template-columns:minmax(0,1fr);gap:13px}
+ .register-field>span{font-size:12px}
+ .register-field input,.login-form .register-field input{min-height:46px;padding:10px 11px;font-size:16px}
+ .password-toggle{padding-inline:9px;font-size:11px}
+ .register-field>small{font-size:10px;line-height:1.8}
+ .register-submit,.login-submit{width:100%;min-width:0;gap:8px;white-space:normal;line-height:1.7}
+ .register-trust{font-size:10px;line-height:1.9}
+ .register-form-card .auth-bottom,.login-bottom{font-size:11px;line-height:2.2;padding-top:15px;margin-top:15px}
+ .login-security-note{padding:10px;gap:8px}
+ .login-security-note p{font-size:10px;line-height:1.9}
+ .mc-empty-learning-cover{grid-template-columns:minmax(0,1fr)}
+ .mc-empty-learning-cover>.mc-learning-image,.mc-empty-learning-cover>.mc-news-image{aspect-ratio:16/9;height:auto}
+ .mc-empty-learning-copy{padding:16px}
+}
+@media(max-width:360px){
+ .register-form-side,.login-form-side{padding:18px 12px}
+ .register-showcase,.login-showcase{min-height:235px}
+ .register-showcase-copy,.login-showcase-copy{right:13px;left:13px}
+ .register-showcase-copy h2,.login-showcase-copy h2{font-size:28px}
+ .register-status{font-size:7px}
+ .register-card-brand .eyebrow{font-size:9px}
+}
