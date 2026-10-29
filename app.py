@@ -16,7 +16,7 @@ from urllib.error import URLError
 from urllib.request import Request, urlopen
 
 import bleach
-from flask import Flask, abort, flash, g, jsonify, redirect, render_template, request, session, url_for
+from flask import Flask, abort, flash, g, jsonify, redirect, render_template, request, send_from_directory, session, url_for
 from markupsafe import Markup
 from werkzeug.security import check_password_hash, generate_password_hash
 
@@ -37,6 +37,7 @@ DATA_DIR = Path(os.environ.get("DATA_DIR", "data"))
 DATA_DIR.mkdir(parents=True, exist_ok=True)
 DB_PATH = Path(os.environ.get("DB_PATH", str(DATA_DIR / "miladcraft.db")))
 DB_PATH.parent.mkdir(parents=True, exist_ok=True)
+SITE_UPLOAD_DIR = Path(os.environ.get("UPLOAD_DIR", str(DATA_DIR / "uploads")))
 
 ROLE_LABELS = {
     "player": "بازیکن",
@@ -808,22 +809,49 @@ def change_staff_role(account_id):
     flash("نقش کارکنان به‌روزرسانی شد.", "success")
     return redirect(url_for("staff_dashboard", section="staff-accounts"))
 
+@app.route("/site-uploads/<path:filename>")
+def serve_site_upload(filename):
+    # Serve uploaded images from the configured data directory (use a Railway volume for persistence).
+    return send_from_directory(SITE_UPLOAD_DIR, filename)
+
 @app.route("/site-settings/images", methods=["POST"])
 @roles_required("developer","owner")
 def update_site_images():
-    values = {}
-    for key, default in IMAGE_DEFAULTS.items():
-        value = request.form.get(key,"").strip()
-        if value and (not value.startswith("https://") or len(value)>1500):
-            flash("آدرس تصاویر باید HTTPS باشد.", "error")
+    # Uploads are stored locally so the homepage does not depend on third-party image hosts.
+    upload_dir = SITE_UPLOAD_DIR
+    upload_dir.mkdir(parents=True, exist_ok=True)
+    allowed = {
+        "image/png": (".png", lambda b: b.startswith(b"\x89PNG\r\n\x1a\n")),
+        "image/jpeg": (".jpg", lambda b: b.startswith(b"\xff\xd8\xff")),
+        "image/webp": (".webp", lambda b: len(b) >= 12 and b[:4] == b"RIFF" and b[8:12] == b"WEBP"),
+        "image/gif": (".gif", lambda b: b.startswith((b"GIF87a", b"GIF89a"))),
+    }
+    keys = list(IMAGE_DEFAULTS.keys())
+    updates = {}
+    for key in keys:
+        upload = request.files.get(key)
+        if not upload or not upload.filename:
+            continue
+        mime = (upload.mimetype or "").lower()
+        if mime not in allowed:
+            flash("فرمت تصویر مجاز نیست. PNG، JPG، WEBP یا GIF انتخاب کن.", "error")
             return redirect(url_for("staff_dashboard", section="site-settings"))
-        values[key] = value or default
+        raw = upload.read(5 * 1024 * 1024 + 1)
+        if not raw or len(raw) > 5 * 1024 * 1024 or not allowed[mime][1](raw):
+            flash("تصویر نامعتبر است یا حجم آن از ۵ مگابایت بیشتر است.", "error")
+            return redirect(url_for("staff_dashboard", section="site-settings"))
+        filename = key + "-" + secrets.token_hex(12) + allowed[mime][0]
+        target = upload_dir / filename
+        target.write_bytes(raw)
+        updates[key] = "/site-uploads/" + filename
+    if not updates:
+        flash("حداقل یک تصویر برای بارگذاری انتخاب کن.", "error")
+        return redirect(url_for("staff_dashboard", section="site-settings"))
     with connect_db() as db:
-        for key,value in values.items():
-            db.execute("UPDATE site_settings SET setting_value=? WHERE setting_key=?", (value,key))
-    flash("تصاویر سایت ذخیره شدند.", "success")
+        for key, value in updates.items():
+            db.execute("UPDATE site_settings SET setting_value=? WHERE setting_key=?", (value, key))
+    flash("تصاویر جدید بارگذاری و ذخیره شدند.", "success")
     return redirect(url_for("staff_dashboard", section="site-settings"))
-
 @app.route("/messages/private", methods=["POST"])
 @staff_required
 def start_private_message():
