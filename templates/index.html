@@ -85,8 +85,8 @@
   <div class="mc-learning-grid">
     {% for post in latest_posts %}
     <a class="mc-learning-card" href="{{ url_for('blog_post',post_id=post['id']) }}">
-      <div class="mc-learning-image">{% if post['cover_url'] %}<img src="{{ post['cover_url'] }}" alt="" loading="lazy">{% else %}<img src="{{ url_for('static', filename='images/minecraft-village.svg') }}" alt="" loading="lazy">{% endif %}<span>آکادمی</span></div>
-      <div class="mc-learning-body"><h3>{{ post['title'] }}</h3><p>{{ post['summary'] or 'راهنما و آموزش برای بازیکنان میلاد کرفت.' }}</p><small>{{ post['author'] }} <span>←</span></small></div>
+      {% if post['cover_url'] %}<div class="mc-learning-image"><img src="{{ post['cover_url'] }}" alt="" loading="lazy"><span>آکادمی</span></div>{% endif %}
+      <div class="mc-learning-body">{% if not post['cover_url'] %}<span class="article-category-badge">آکادمی</span>{% endif %}<h3>{{ post['title'] }}</h3><p>{{ post['summary'] or 'راهنما و آموزش برای بازیکنان میلاد کرفت.' }}</p><small>{{ post['author'] }} <span>←</span></small></div>
     </a>
     {% else %}
     <div class="mc-empty-learning"><span>MC</span><div><b>آموزش‌ها به‌زودی اینجا قرار می‌گیرند</b><p>برای دیدن مطالب جدید، سری به آکادمی بزن.</p></div><a href="{{ url_for('academy') }}">رفتن به آکادمی ←</a></div>
@@ -99,8 +99,8 @@
   <div class="mc-news-grid">
     {% for item in latest_news %}
     <a class="mc-news-card" href="{{ url_for('news_detail',news_id=item['id']) }}">
-      <div class="mc-news-image">{% if item['cover_url'] %}<img src="{{ item['cover_url'] }}" alt="" loading="lazy">{% else %}<img src="{{ url_for('static', filename='images/minecraft-night.svg') }}" alt="" loading="lazy">{% endif %}<span>خبر رسمی</span></div>
-      <div class="mc-news-body"><small>{{ item['created_at'][:10] }}</small><h3>{{ item['title'] }}</h3><p>{{ item['summary'] or 'آخرین خبرها و اطلاعیه‌های رسمی MILAD CRAFT.' }}</p><span class="mc-news-read">ادامه خبر ←</span></div>
+      {% if item['cover_url'] %}<div class="mc-news-image"><img src="{{ item['cover_url'] }}" alt="" loading="lazy"><span>اخبار</span></div>{% endif %}
+      <div class="mc-news-body">{% if not item['cover_url'] %}<span class="article-category-badge">اخبار</span>{% endif %}<small>{{ item['created_at'][:10] }}</small><h3>{{ item['title'] }}</h3><p>{{ item['summary'] or 'آخرین خبرها و اطلاعیه‌های رسمی MILAD CRAFT.' }}</p><span class="mc-news-read">ادامه خبر ←</span></div>
     </a>
     {% else %}
     <div class="mc-empty-learning"><span>NEWS</span><div><b>هنوز خبری منتشر نشده است</b><p>اطلاعیه‌های جدید در این قسمت نمایش داده می‌شوند.</p></div><a href="{{ url_for('news_page') }}">بخش اخبار ←</a></div>
