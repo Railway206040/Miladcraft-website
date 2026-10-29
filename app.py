@@ -76,7 +76,6 @@ IMAGE_DEFAULTS = {
     "about_image": "/static/images/minecraft-forest.svg",
     "roleplay_image": "/static/images/minecraft-village.svg",
     "survival_image": "/static/images/minecraft-forest.svg",
-    "gallery_image_1": "/static/images/minecraft-village.svg",
     "gallery_image_2": "/static/images/minecraft-night.svg",
     "gallery_image_3": "/static/images/minecraft-world.svg",
 }
@@ -296,10 +295,6 @@ def init_db():
             "survival_image": [
                 "https://images.unsplash.com/photo-1580234811497-9df7fd2f357e?auto=format&fit=crop&w=1100&q=85",
                 "https://www.minecraft.net/content/dam/games/minecraft/key-art/MCV_BambooJungle_1920x1080.jpg",
-            ],
-            "gallery_image_1": [
-                "https://images.unsplash.com/photo-1511512578047-dfb367046420?auto=format&fit=crop&w=1200&q=85",
-                "https://www.minecraft.net/content/dam/games/minecraft/key-art/MCV_The_Creaking_1920x1080.jpg",
             ],
             "gallery_image_2": [
                 "https://images.unsplash.com/photo-1542751371-adc38448a05e?auto=format&fit=crop&w=800&q=85",
