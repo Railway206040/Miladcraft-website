@@ -1148,7 +1148,7 @@ def blog_editor():
                     db.execute("INSERT OR IGNORE INTO post_tags(post_id,tag_id) SELECT ?,id FROM academy_tags WHERE id=?", (new_id,tag_id))
                 flash("مطلب ساخته شد.", "success")
                 return redirect(url_for("staff_dashboard", section="academy-content"))
-    return render_template("editor.html",post=post,tags=tags,selected_tag_ids=selected_tag_ids)
+    return render_template("editor.html",post=post,tags=tags,selected_tag_ids=selected_tag_ids,mode="academy")
 
 @app.route("/academy/<int:post_id>/delete", methods=["POST"])
 @staff_required
