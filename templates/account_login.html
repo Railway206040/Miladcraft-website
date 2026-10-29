@@ -5,7 +5,7 @@
   <a class="back-link login-back" href="{{ url_for('account_portal') }}">← بازگشت به مرکز حساب</a>
   <div class="login-grid">
     <aside class="login-showcase">
-      <img class="login-world-image" src="https://www.minecraft.net/content/dam/games/minecraft/key-art/MCV_The_Bogged_1920x1080.jpg" alt="چشم‌انداز Minecraft" onerror="this.onerror=null;this.src='https://www.minecraft.net/content/dam/games/minecraft/key-art/MCV_The_Bogged_1920x1080.jpg';">
+      <img class="login-world-image" src="{{ url_for('static', filename='images/minecraft-world.svg') }}" alt="چشم‌انداز Minecraft" onerror="this.onerror=null;this.src='{{ url_for('static', filename='images/minecraft-world.svg') }}';">
       <div class="login-showcase-shade"></div>
       <div class="login-showcase-top"><span class="register-mark">MC</span><span class="register-status"><i></i> MILAD CRAFT NETWORK</span></div>
       <div class="login-showcase-copy"><span class="eyebrow">WELCOME BACK / PLAYER</span><h2>ماجراجویی‌ات<br><span>ادامه دارد.</span></h2><p>با حساب خودت برگرد؛ دنیای Minecraft و جامعه MILAD CRAFT منتظر توست.</p><div class="login-showcase-stats"><span><b>{{ server_version }}</b><small>نسخه سرور</small></span><span><b>ROLE PLAY</b><small>حالت بازی</small></span></div></div>
