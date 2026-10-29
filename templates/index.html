@@ -89,7 +89,7 @@
       <div class="mc-learning-body"><h3>{{ post['title'] }}</h3><p>{{ post['summary'] or 'راهنما و آموزش برای بازیکنان میلاد کرفت.' }}</p><small>{{ post['author'] }} <span>←</span></small></div>
     </a>
     {% else %}
-    <div class="mc-empty-learning"><span>MC</span><div><b>آموزش‌ها به‌زودی اینجا قرار می‌گیرند</b><p>برای دیدن مطالب جدید، سری به آکادمی بزن.</p></div><a href="{{ url_for('academy') }}">رفتن به آکادمی ←</a></div>
+    <div class="mc-empty-learning mc-empty-learning-cover"><div class="mc-learning-image mc-cover-fallback mc-cover-academy"><span class="mc-cover-brand">آکادمی میلاد</span><span>آکادمی</span></div><div class="mc-empty-learning-copy"><b>آموزش‌ها به‌زودی اینجا قرار می‌گیرند</b><p>برای دیدن مطالب جدید، سری به آکادمی بزن.</p><a href="{{ url_for('academy') }}">رفتن به آکادمی ←</a></div></div>
     {% endfor %}
   </div>
 </section>
@@ -103,7 +103,7 @@
       <div class="mc-news-body"><small>{{ item['created_at'][:10] }}</small><h3>{{ item['title'] }}</h3><p>{{ item['summary'] or 'آخرین خبرها و اطلاعیه‌های رسمی MILAD CRAFT.' }}</p><span class="mc-news-read">ادامه خبر ←</span></div>
     </a>
     {% else %}
-    <div class="mc-empty-learning"><span>NEWS</span><div><b>هنوز خبری منتشر نشده است</b><p>اطلاعیه‌های جدید در این قسمت نمایش داده می‌شوند.</p></div><a href="{{ url_for('news_page') }}">بخش اخبار ←</a></div>
+    <div class="mc-empty-learning mc-empty-learning-cover"><div class="mc-news-image mc-cover-fallback mc-cover-news"><span class="mc-cover-brand">اخبار سرور</span><span>اخبار</span></div><div class="mc-empty-learning-copy"><b>هنوز خبری منتشر نشده است</b><p>اطلاعیه‌های جدید در این قسمت نمایش داده می‌شوند.</p><a href="{{ url_for('news_page') }}">بخش اخبار ←</a></div></div>
     {% endfor %}
   </div>
 </section>
