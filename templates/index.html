@@ -98,11 +98,11 @@
   <div class="mc-news-grid">
     {% for item in latest_news %}
     <a class="mc-news-card" href="{{ url_for('news_detail',news_id=item['id']) }}">
-      <div class="mc-news-image {% if not item['cover_url'] %}mc-cover-fallback mc-cover-news{% endif %}">{% if item['cover_url'] %}<img src="{{ item['cover_url'] }}" alt="" loading="lazy">{% else %}<span class="mc-cover-brand">اخبار سرور</span>{% endif %}</div>
+      <div class="mc-news-image {% if not item['cover_url'] %}mc-cover-fallback mc-cover-news{% endif %}">{% if item['cover_url'] %}<img src="{{ item['cover_url'] }}" alt="" loading="lazy">{% else %}<span class="mc-cover-brand">اخبار سرور</span><span class="mc-cover-category">اخبار</span>{% endif %}</div>
       <div class="mc-news-body"><small>{{ item['created_at'][:10] }}</small><h3>{{ item['title'] }}</h3><p>{{ item['summary'] or 'آخرین خبرها و اطلاعیه‌های رسمی MILAD CRAFT.' }}</p><span class="mc-news-read">ادامه خبر ←</span></div>
     </a>
     {% else %}
-    <div class="mc-empty-learning mc-empty-learning-cover"><div class="mc-news-image mc-cover-fallback mc-cover-news"><span class="mc-cover-brand">اخبار سرور</span></div><div class="mc-empty-learning-copy"><b>هنوز خبری منتشر نشده است</b><p>اطلاعیه‌های جدید در این قسمت نمایش داده می‌شوند.</p><a href="{{ url_for('news_page') }}">بخش اخبار ←</a></div></div>
+    <div class="mc-empty-learning mc-empty-learning-cover"><div class="mc-news-image mc-cover-fallback mc-cover-news"><span class="mc-cover-brand">اخبار سرور</span><span class="mc-cover-category">اخبار</span></div><div class="mc-empty-learning-copy"><b>هنوز خبری منتشر نشده است</b><p>اطلاعیه‌های جدید در این قسمت نمایش داده می‌شوند.</p><a href="{{ url_for('news_page') }}">بخش اخبار ←</a></div></div>
     {% endfor %}
   </div>
 </section>
