@@ -16,7 +16,7 @@ from urllib.error import URLError
 from urllib.request import Request, urlopen
 
 import bleach
-from flask import Flask, abort, flash, g, jsonify, redirect, render_template, request, session, url_for
+from flask import Flask, abort, flash, g, jsonify, redirect, render_template, request, send_from_directory, session, url_for
 from markupsafe import Markup
 from werkzeug.security import check_password_hash, generate_password_hash
 
@@ -37,6 +37,7 @@ DATA_DIR = Path(os.environ.get("DATA_DIR", "data"))
 DATA_DIR.mkdir(parents=True, exist_ok=True)
 DB_PATH = Path(os.environ.get("DB_PATH", str(DATA_DIR / "miladcraft.db")))
 DB_PATH.parent.mkdir(parents=True, exist_ok=True)
+SITE_UPLOAD_DIR = Path(os.environ.get("UPLOAD_DIR", str(DATA_DIR / "uploads")))
 
 ROLE_LABELS = {
     "player": "بازیکن",
@@ -808,11 +809,16 @@ def change_staff_role(account_id):
     flash("نقش کارکنان به‌روزرسانی شد.", "success")
     return redirect(url_for("staff_dashboard", section="staff-accounts"))
 
+@app.route("/site-uploads/<path:filename>")
+def serve_site_upload(filename):
+    # Serve uploaded images from the configured data directory (use a Railway volume for persistence).
+    return send_from_directory(SITE_UPLOAD_DIR, filename)
+
 @app.route("/site-settings/images", methods=["POST"])
 @roles_required("developer","owner")
 def update_site_images():
     # Uploads are stored locally so the homepage does not depend on third-party image hosts.
-    upload_dir = Path(__file__).resolve().parent / "static" / "uploads"
+    upload_dir = SITE_UPLOAD_DIR
     upload_dir.mkdir(parents=True, exist_ok=True)
     allowed = {
         "image/png": (".png", lambda b: b.startswith(b"\x89PNG\r\n\x1a\n")),
@@ -837,7 +843,7 @@ def update_site_images():
         filename = key + "-" + secrets.token_hex(12) + allowed[mime][0]
         target = upload_dir / filename
         target.write_bytes(raw)
-        updates[key] = "/static/uploads/" + filename
+        updates[key] = "/site-uploads/" + filename
     if not updates:
         flash("حداقل یک تصویر برای بارگذاری انتخاب کن.", "error")
         return redirect(url_for("staff_dashboard", section="site-settings"))
