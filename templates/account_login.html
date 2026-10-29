@@ -1,5 +1,35 @@
 {% extends "base.html" %}
 {% block title %}ورود به حساب | MILAD CRAFT{% endblock %}
 {% block content %}
-<section class="auth-wrap"><a class="back-link" href="{{ url_for('account_portal') }}">← بازگشت به حساب‌ها</a><div class="auth-card"><div class="auth-brand"><img src="{{ site_images.get('site_logo') or url_for('static',filename='logo.svg') }}" alt=""><span class="eyebrow">WELCOME BACK / MILAD CRAFT</span></div><h1>خوش برگشتی.</h1><p class="auth-subtitle">با همان حساب بازیکن یا کارکنان وارد شو.</p><form method="post" class="form-stack">{{ csrf_field() }}<label>نام کاربری<input name="username" autocomplete="username" required minlength="3" maxlength="30" value="{{ request.form.get('username','') }}" placeholder="نام کاربری"></label><label>رمز عبور<input name="password" type="password" autocomplete="current-password" required placeholder="رمز عبور"></label><button class="button button-primary button-full button-large" type="submit">ورود به حساب <span class="button-arrow">←</span></button></form><div class="auth-bottom">حساب نداری؟ <a href="{{ url_for('account_register') }}">یک حساب بساز</a></div></div></section>
+<section class="login-experience">
+  <a class="back-link login-back" href="{{ url_for('account_portal') }}">← بازگشت به مرکز حساب</a>
+  <div class="login-grid">
+    <aside class="login-showcase">
+      <img class="login-world-image" src="https://www.minecraft.net/content/dam/games/minecraft/key-art/MCV_The_Bogged_1920x1080.jpg" alt="چشم‌انداز Minecraft" onerror="this.onerror=null;this.src='https://www.minecraft.net/content/dam/games/minecraft/key-art/MCV_The_Bogged_1920x1080.jpg';">
+      <div class="login-showcase-shade"></div>
+      <div class="login-showcase-top"><span class="register-mark">MC</span><span class="register-status"><i></i> MILAD CRAFT NETWORK</span></div>
+      <div class="login-showcase-copy"><span class="eyebrow">WELCOME BACK / PLAYER</span><h2>ماجراجویی‌ات<br><span>ادامه دارد.</span></h2><p>با حساب خودت برگرد؛ دنیای Minecraft و جامعه MILAD CRAFT منتظر توست.</p><div class="login-showcase-stats"><span><b>{{ server_version }}</b><small>نسخه سرور</small></span><span><b>ROLE PLAY</b><small>حالت بازی</small></span></div></div>
+      <div class="login-floating-chip"><span class="register-chip-dot"></span><div><b>یک حساب، همه‌جا</b><small>پروفایل · اخبار · ابزار کارکنان</small></div></div>
+    </aside>
+    <div class="login-form-side">
+      <div class="login-form-card">
+        <div class="register-card-brand"><img src="{{ site_images.get('site_logo') or url_for('static',filename='logo.svg') }}" alt=""><div><span class="eyebrow">ACCOUNT LOGIN / 02</span><small>ورود امن به حساب MILAD CRAFT</small></div></div>
+        <h1>خوش برگشتی.</h1><p class="login-lead">با همان حساب بازیکن یا کارکنان وارد شو.</p>
+        <form method="post" class="login-form" id="login-form">
+          {{ csrf_field() }}
+          <label class="register-field"><span>نام کاربری <b>*</b></span><input name="username" autocomplete="username" required minlength="3" maxlength="30" value="{{ request.form.get('username','') }}" placeholder="مثلاً Player_01"></label>
+          <label class="register-field"><span>رمز عبور <b>*</b></span><div class="password-input-wrap"><input name="password" id="login-password" type="password" autocomplete="current-password" required placeholder="رمز عبور"><button type="button" class="password-toggle" data-password-toggle="login-password" aria-label="نمایش رمز عبور">نمایش</button></div></label>
+          <button class="button button-primary button-full button-large login-submit" type="submit"><span>ورود به حساب</span><span class="button-arrow">←</span></button>
+        </form>
+        <div class="login-bottom">حساب نداری؟ <a href="{{ url_for('account_register') }}">ساخت حساب جدید</a></div>
+        <div class="login-security-note"><span>✓</span><p>حساب کارکنان و بازیکن یکسان است؛ دسترسی‌های کارکنان فقط پس از ارتقای نقش فعال می‌شوند.</p></div>
+      </div>
+    </div>
+  </div>
+</section>
+{% endblock %}
+{% block scripts %}
+<script>
+document.querySelectorAll('[data-password-toggle]').forEach(function(button){button.addEventListener('click',function(){const field=document.getElementById(button.dataset.passwordToggle);if(!field)return;const showing=field.type==='password';field.type=showing?'text':'password';button.textContent=showing?'پنهان':'نمایش';button.setAttribute('aria-label',showing?'پنهان کردن رمز عبور':'نمایش رمز عبور')})});
+</script>
 {% endblock %}
