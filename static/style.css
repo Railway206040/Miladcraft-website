@@ -307,3 +307,15 @@ input:focus,textarea:focus,select:focus{outline:none;border-color:rgba(93,158,25
 .staff-dashboard-entry{margin-top:36px!important;margin-bottom:12px;padding:28px 32px!important;border-radius:22px!important;box-shadow:0 16px 40px #0002}
 @media(max-width:900px){.mc-academy-section{grid-template-columns:1fr}.mc-academy-visual{height:300px}.mc-learning-grid,.mc-news-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.mc-telegram-card{flex-wrap:wrap}.mc-telegram-card>.button{margin-inline-start:128px}}
 @media(max-width:620px){.mc-academy-section{padding:25px 15px;gap:20px}.mc-academy-visual{height:235px}.mc-academy-copy h2{font-size:2rem}.mc-learning-grid,.mc-news-grid{grid-template-columns:1fr}.mc-learning-image,.mc-news-image{height:200px}.mc-empty-learning{align-items:flex-start;flex-wrap:wrap}.mc-empty-learning>div{min-width:calc(100% - 75px)}.mc-empty-learning>a{margin-inline-start:68px}.mc-telegram-card-section{padding:0 15px;margin-bottom:45px}.mc-telegram-card{display:grid;grid-template-columns:76px 1fr;gap:16px;padding:22px 18px}.mc-telegram-icon-wrap{width:76px;height:76px;flex-basis:76px;border-radius:20px}.mc-telegram-icon-wrap img{width:48px;height:48px}.mc-telegram-card-copy h2{font-size:1.65rem}.mc-telegram-card-copy p{font-size:.84rem}.mc-telegram-card>.button{grid-column:1/-1;margin:0;width:100%;justify-content:center}.mc-section-more{font-size:.82rem}.mc-news-section .mc-section-heading{display:flex;align-items:flex-start;gap:12px}.staff-dashboard-entry{margin-top:28px!important;padding:21px!important}}
+
+/* Academy/news refinements */
+.mc-academy-page-hero{margin:42px 0 26px;min-height:300px}
+.mc-academy-page-hero .mc-academy-visual{min-height:310px}
+.mc-academy-page-hero .mc-academy-copy h1{font-size:clamp(30px,4vw,46px);line-height:1.35;margin:14px 0}
+.academy-search-intro{margin-top:20px}
+.article-category-badge{display:inline-flex;align-items:center;width:max-content;max-width:100%;padding:4px 10px;margin-bottom:10px;border:1px solid rgba(80,215,232,.25);border-radius:999px;background:rgba(80,215,232,.08);color:#7de4ef;font-size:11px;font-weight:800}
+.mc-learning-card:not(:has(.mc-learning-image)){padding-top:18px}
+.mc-news-card:not(:has(.mc-news-image)){padding-top:18px}
+.mc-learning-card .article-category-badge,.mc-news-card .article-category-badge{margin:0 0 9px}
+.article-card-body .article-category-badge{margin-bottom:9px}
+@media(max-width:760px){.mc-academy-page-hero{margin-top:24px}.mc-academy-page-hero .mc-academy-visual{min-height:220px}}
