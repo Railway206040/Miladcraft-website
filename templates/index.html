@@ -1,54 +1,101 @@
 {% extends "base.html" %}
-{% block title %}MILAD CRAFT | دنیای تو، داستان تو{% endblock %}
-{% block description %}به MILAD CRAFT بپیوند؛ سرور فارسی ماینکرفت با تجربه رول‌پلی، جامعه فعال، اخبار و مرکز آموزش.{% endblock %}
+{% block title %}MILAD CRAFT | از ۱۴۰۳، ماجراجویی ادامه دارد{% endblock %}
+{% block description %}سرور فارسی ماینکرفت MILAD CRAFT؛ از سال ۱۴۰۳ فعال، با گیم‌مود رول‌پلی فعال و سروایول در دست ساخت. پشتیبانی از نسخه‌های 1.8 تا 1.21.11؛ نسخه پیشنهادی 1.21.{% endblock %}
 {% block content %}
-<section class="hero-section hero-v3">
-  <div class="hero-copy">
-    <div class="eyebrow"><span class="status-pulse"></span> دنیای رسمی MILAD CRAFT <span class="eyebrow-divider">/</span> Minecraft {{ server_version }}</div>
-    <h1>جهانی از بلوک‌ها،<br><span>داستانی از آنِ تو.</span></h1>
-    <p class="hero-description">از ساخت‌وساز و رول‌پلی تا ماجراجویی با جامعه‌ای فعال؛ دنیای Minecraft را به سبک خودت تجربه کن. هر بلوک می‌تواند شروع یک داستان تازه باشد.</p>
-    <div class="hero-actions">
-      <button class="button button-primary button-large" type="button" data-copy="{{ server_address }}"><span class="button-symbol">↗</span><span>کپی آدرس سرور</span></button>
-      <a class="button button-outline button-large" href="{{ url_for('account_register') }}">ساخت حساب <span class="button-arrow">←</span></a>
+<section class="mc-hero mc-reveal">
+  <div class="mc-hero-copy">
+    <span class="mc-kicker"><i class="mc-kicker-dot"></i> سرور فارسی ماینکرفت · همراه از سال ۱۴۰۳</span>
+    <h1>دنیای خودت را بساز.<br><span>داستانت را زندگی کن.</span></h1>
+    <p class="mc-hero-lead">در MILAD CRAFT فقط وارد یک سرور نمی‌شوی؛ وارد دنیایی می‌شوی که می‌توانی در آن نقش خودت را پیدا کنی، با دیگران تعامل داشته باشی و بخشی از یک جامعه باشی.</p>
+    <div class="mc-hero-actions">
+      <button class="button button-primary button-large" type="button" data-copy="{{ server_address }}">کپی آدرس سرور <span class="button-arrow">↗</span></button>
+      <a class="button button-outline button-large" href="#gamemodes">کشف گیم‌مودها <span class="button-arrow">↓</span></a>
     </div>
-    <div class="hero-meta"><span><i class="meta-square"></i> Role Play</span><span><i class="meta-square meta-square-blue"></i> نسخه {{ server_version }}</span><span><i class="meta-square meta-square-gold"></i> از سال ۱۴۰۲</span></div><div class="hero-world-note"><span class="hero-world-note-mark">MC</span><span><b>دنیای MILAD CRAFT</b><small>بساز · نقش‌آفرینی کن · همراه شو</small></span><span class="hero-world-note-spark">✦</span></div>
+    <div class="mc-hero-pills"><span>پشتیبانی 1.8 تا 1.21.11</span><span>پیشنهاد ما: 1.21</span><span>جامعه فارسی‌زبان</span></div>
   </div>
-  <div class="hero-visual">
-    <div class="hero-image-frame"><img src="{{ site_images.get('hero_image') }}" alt="چشم‌انداز دنیای Minecraft در MILAD CRAFT" onerror="this.onerror=null;this.src='{{ url_for('static', filename='images/minecraft-world.svg') }}';"><div class="hero-image-shade"></div>
-      <div class="hero-image-topline"><span class="hero-image-index">WORLD / 001</span><span class="hero-live"><i></i> SERVER STATUS</span></div>
-      <div class="hero-image-title"><span>BUILD YOUR LEGACY</span><b>جهان منتظر توست.</b></div>
-      <div class="floating-label label-bottom"><span class="online-indicator" id="server-dot"></span><span><b id="server-state">در حال بررسی وضعیت</b><small id="server-count">وضعیت سرور</small></span></div>
+  <div class="mc-hero-art">
+    <img src="{{ site_images.get('hero_image') or url_for('static', filename='images/minecraft-world.svg') }}" alt="چشم‌انداز دنیای MILAD CRAFT" onerror="this.onerror=null;this.src='{{ url_for('static', filename='images/minecraft-world.svg') }}';">
+    <div class="mc-art-gradient"></div>
+    <div class="mc-art-badge"><span class="mc-art-badge-icon">MC</span><span><b>MILAD CRAFT</b><small>YOUR WORLD. YOUR STORY.</small></span></div>
+    <div class="mc-status-float"><span id="server-dot" class="mc-status-dot"></span><span><b id="server-state">در حال بررسی سرور…</b><small id="server-count">در حال دریافت وضعیت و تعداد بازیکنان</small></span></div>
+    <span class="mc-art-corner">EST. ۱۴۰۳</span>
+  </div>
+</section>
+
+<section class="mc-server-panel mc-reveal" aria-label="اطلاعات اتصال سرور">
+  <div class="mc-server-main"><span class="mc-section-label">آماده ورود هستی؟</span><b>به ما ملحق شو</b><span>آدرس را کپی کن و در بخش Multiplayer بازی وارد کن.</span></div>
+  <div class="mc-server-address"><span class="mc-server-live-dot"></span><code>{{ server_address }}</code><button type="button" data-copy="{{ server_address }}">کپی آدرس</button></div>
+  <div class="mc-version-info"><span>نسخه پیشنهادی</span><b>1.21</b><small>سازگار با 1.8 تا 1.21.11</small></div>
+</section>
+
+<section class="mc-section mc-history mc-reveal" id="about">
+  <div class="mc-section-heading"><div><span class="mc-section-label">داستان ما</span><h2>از سال ۱۴۰۳،<br><span>در حال ساختن یک دنیا.</span></h2></div><p>میلاد کرفت با یک هدف شروع شد: ساختن فضایی برای بازیکن‌هایی که می‌خواهند فقط بازی نکنند، بلکه تجربه بسازند، ارتباط بگیرند و خاطره جمع کنند.</p></div>
+  <div class="mc-history-layout">
+    <div class="mc-history-image"><img src="{{ site_images.get('about_image') or url_for('static', filename='images/minecraft-forest.svg') }}" alt="جهان بلوکی میلاد کرفت" loading="lazy" onerror="this.onerror=null;this.src='{{ url_for('static', filename='images/minecraft-forest.svg') }}';"><span class="mc-image-year">۱۴۰۳ — تاکنون</span></div>
+    <div class="mc-timeline">
+      <article><span class="mc-timeline-mark">01</span><div><small>شروع مسیر</small><h3>ایده‌ای برای یک جامعه</h3><p>شروع ساخت MILAD CRAFT با تمرکز بر تجربه‌ای فارسی‌زبان، اجتماعی و متفاوت در Minecraft.</p></div></article>
+      <article><span class="mc-timeline-mark">02</span><div><small>امروز</small><h3>رول‌پلی در دسترس بازیکنان</h3><p>گیم‌مود رول‌پلی فعال است؛ بازیکنان می‌توانند وارد سرور شوند و داستان خودشان را شروع کنند.</p></div></article>
+      <article><span class="mc-timeline-mark">03</span><div><small>قدم بعدی</small><h3>سروایول در حال توسعه</h3><p>گیم‌مود سروایول در دست ساخت است تا در ادامه، راه تازه‌ای برای ماجراجویی به مجموعه اضافه شود.</p></div></article>
     </div>
-    <div class="hero-image-caption"><span>01 — MILAD CRAFT</span><span>PLAY YOUR STORY</span></div>
-  </div>
-  <div class="hero-orbit hero-orbit-one"></div><div class="hero-orbit hero-orbit-two"></div><div class="hero-pixel-float hero-pixel-float-one"></div><div class="hero-pixel-float hero-pixel-float-two"></div>
-</section>
-<section class="server-strip">
-  <div class="server-strip-title"><span class="tiny-label">آماده ورود؟</span><b>در چند ثانیه به ما بپیوند</b></div>
-  <div class="server-address"><span class="address-indicator"></span><code>{{ server_address }}</code><button type="button" class="copy-inline" data-copy="{{ server_address }}">کپی آدرس <span>↗</span></button></div>
-  <div class="server-version"><span>نسخه پیشنهادی</span><b>{{ server_version }}</b></div>
-</section>
-<section class="section-block" id="about">
-  <div class="section-heading"><div><span class="eyebrow">THE EXPERIENCE</span><h2>یک سرور؛ <span>هزاران امکان.</span></h2></div><p>از ساختن شخصیت تا خلق مکان‌های تازه؛ تجربه‌ای که با حضور جامعه معنا پیدا می‌کند.</p></div>
-  <div class="feature-grid">
-    <article class="feature-card feature-card-wide"><img src="{{ site_images.get('roleplay_image') }}" alt="تجربه رول‌پلی در دنیای Minecraft" onerror="this.onerror=null;this.src='{{ url_for('static', filename='images/minecraft-world.svg') }}';"><div class="feature-overlay"><span class="feature-number">01 / MODE</span><h3>Role Play</h3><p>شخصیتت را بساز، نقش خودت را پیدا کن و داستانی خلق کن که فقط متعلق به توست.</p><a href="{{ url_for('academy') }}">راهنمای شروع <span>←</span></a></div></article>
-    <article class="feature-card"><img src="{{ site_images.get('survival_image') }}" alt="ساخت‌وساز در Minecraft" onerror="this.onerror=null;this.src='{{ url_for('static', filename='images/minecraft-world.svg') }}';"><div class="feature-overlay"><span class="feature-number">02 / CREATE</span><h3>ساختن و پیشرفت</h3><p>ایده‌ها را به سازه‌ها و پروژه‌های ماندگار تبدیل کن.</p></div></article>
-    <article class="feature-card"><img src="{{ site_images.get('about_image') }}" alt="جامعه بازیکنان Minecraft" onerror="this.onerror=null;this.src='{{ url_for('static', filename='images/minecraft-world.svg') }}';"><div class="feature-overlay"><span class="feature-number">03 / COMMUNITY</span><h3>جامعه‌ای زنده</h3><p>با بازیکنان همراه شو، تجربه‌ات را به اشتراک بگذار و بخشی از داستان باش.</p><a href="{{ telegram_url }}" target="_blank" rel="noopener noreferrer">پیوستن به تلگرام <span>↗</span></a></div></article>
   </div>
 </section>
-<section class="section-block section-split">
-  <div class="split-image"><img src="{{ site_images.get('gallery_image_1') }}" alt="ساخت جهان Minecraft با همکاری بازیکنان" onerror="this.onerror=null;this.src='{{ url_for('static', filename='images/minecraft-world.svg') }}';"><div class="image-stamp">MADE<br>TOGETHER</div></div>
-  <div class="split-copy"><span class="eyebrow">YOUR ACCOUNT, YOUR JOURNEY</span><h2>یک حساب برای<br><span>تمام مسیر تو.</span></h2><p>پروفایل، فعالیت‌ها، دیدگاه‌ها و اعلان‌ها را در یک مکان مدیریت کن. اگر به تیم کارکنان بپیوندی، همان حساب با دسترسی جدید ادامه می‌دهد.</p><a class="text-link" href="{{ url_for('account_portal') }}">ورود به فضای کاربری <span>←</span></a></div>
+
+<section class="mc-section mc-modes mc-reveal" id="gamemodes">
+  <div class="mc-section-heading"><div><span class="mc-section-label">گیم‌مودهای سرور</span><h2>هر سبک بازی،<br><span>یک ماجراجویی تازه.</span></h2></div><p>در حال حاضر رول‌پلی گیم‌مود فعال میلاد کرفت است. سروایول هم در حال ساخت و آماده‌سازی برای آینده است.</p></div>
+  <div class="mc-mode-grid">
+    <article class="mc-mode-card mc-mode-live">
+      <div class="mc-mode-image"><img src="{{ site_images.get('roleplay_image') or url_for('static', filename='images/minecraft-village.svg') }}" alt="محیط رول‌پلی میلاد کرفت" loading="lazy" onerror="this.onerror=null;this.src='{{ url_for('static', filename='images/minecraft-village.svg') }}';"><span class="mc-mode-status"><i></i> فعال</span><span class="mc-mode-index">GAME MODE / 01</span></div>
+      <div class="mc-mode-content"><div class="mc-mode-title"><div><span>نقش‌آفرینی</span><h3>Role Play</h3></div><span class="mc-mode-number">01</span></div><p>شخصیتت را بساز، با دیگر بازیکنان تعامل کن و در دنیایی اجتماعی داستان مخصوص خودت را رقم بزن.</p><a href="{{ url_for('academy') }}" class="mc-text-link">راهنمای شروع <span>←</span></a></div>
+    </article>
+    <article class="mc-mode-card mc-mode-building">
+      <div class="mc-mode-image"><img src="{{ site_images.get('survival_image') or url_for('static', filename='images/minecraft-forest.svg') }}" alt="جهان سروایول در حال توسعه" loading="lazy" onerror="this.onerror=null;this.src='{{ url_for('static', filename='images/minecraft-forest.svg') }}';"><span class="mc-mode-status mc-mode-status-building"><i></i> در دست ساخت</span><span class="mc-mode-index">GAME MODE / 02</span></div>
+      <div class="mc-mode-content"><div class="mc-mode-title"><div><span>بقا و پیشرفت</span><h3>Survival</h3></div><span class="mc-mode-number">02</span></div><p>یک تجربه تازه از جمع‌آوری منابع، ساخت‌وساز و پیشرفت در انتظار است؛ این گیم‌مود هنوز در حال توسعه است.</p><span class="mc-mode-note">به‌زودی؛ زمان انتشار اعلام خواهد شد.</span></div>
+    </article>
+  </div>
 </section>
-<section class="section-block content-section">
-  <div class="section-heading"><div><span class="eyebrow">LATEST FROM THE WORLD</span><h2>تازه‌های <span>MILAD CRAFT</span></h2></div><div class="heading-links"><a href="{{ url_for('news_page') }}">همه اخبار ←</a><a href="{{ url_for('academy') }}">مرکز آموزش ←</a></div></div>
+
+<section class="mc-why-section mc-reveal" id="why-us">
+  <div class="mc-why-backdrop"></div>
+  <div class="mc-why-inner"><div class="mc-section-heading"><div><span class="mc-section-label">چرا MILAD CRAFT؟</span><h2>بیشتر از یک سرور؛<br><span>جایی برای تعلق داشتن.</span></h2></div><p>ما می‌خواهیم بازی‌کردن در میلاد کرفت به تجربه‌ای تبدیل شود که دوست داشته باشی دوباره به آن برگردی.</p></div>
+    <div class="mc-reasons-grid">
+      <article><span class="mc-reason-icon">01</span><h3>شروع آسان</h3><p>با نسخه‌های متنوع Minecraft می‌توانی وصل شوی؛ برای تجربه پیشنهادی، نسخه 1.21 را انتخاب کن.</p></article>
+      <article><span class="mc-reason-icon">02</span><h3>تعامل واقعی</h3><p>رول‌پلی فرصتی برای ساخت شخصیت، آشنایی با بازیکنان و شکل‌دادن به داستان‌های مشترک است.</p></article>
+      <article><span class="mc-reason-icon">03</span><h3>مسیر رو به رشد</h3><p>از سال ۱۴۰۳ فعال هستیم و توسعه گیم‌مودها و امکانات سایت را ادامه می‌دهیم.</p></article>
+      <article><span class="mc-reason-icon">04</span><h3>جامعه فارسی‌زبان</h3><p>اخبار، راهنماها و اطلاعیه‌ها را از سایت و کانال رسمی تلگرام دنبال کن.</p></article>
+    </div>
+  </div>
+</section>
+
+<section class="mc-telegram-section mc-reveal" id="telegram">
+  <div class="mc-telegram-art"><img src="{{ site_images.get('gallery_image_1') or url_for('static', filename='images/minecraft-village.svg') }}" alt="جهان MILAD CRAFT" loading="lazy" onerror="this.onerror=null;this.src='{{ url_for('static', filename='images/minecraft-village.svg') }}';"><div class="mc-telegram-art-shade"></div><span class="mc-telegram-monogram">MC</span></div>
+  <div class="mc-telegram-copy"><span class="mc-section-label">همیشه در جریان باش</span><h2>خبرهای میلاد کرفت<br><span>یک کلیک با تو فاصله دارند.</span></h2><p>برای اطلاع از خبرهای سرور، برنامه‌های آینده، تغییرات و زمان آماده‌شدن گیم‌مودهای جدید، کانال رسمی تلگرام را دنبال کن.</p><a class="button button-primary button-large" href="{{ telegram_url }}" target="_blank" rel="noopener noreferrer">ورود به کانال تلگرام <span class="button-arrow">↗</span></a><small>@Milad_craft</small></div>
+</section>
+
+<section class="mc-section mc-content-section mc-reveal">
+  <div class="mc-section-heading"><div><span class="mc-section-label">تازه از دنیای ما</span><h2>خبرها و راهنماها</h2></div><div class="heading-links"><a href="{{ url_for('news_page') }}">همه اخبار ←</a><a href="{{ url_for('academy') }}">مرکز آموزش ←</a></div></div>
   <div class="content-grid">
-    <div class="content-column"><div class="content-column-title"><span class="content-icon">N</span><h3>اخبار و اطلاعیه‌ها</h3></div>{% for item in latest_news %}<a class="content-row" href="{{ url_for('news_detail',news_id=item['id']) }}">{% if item['cover_url'] %}<img src="{{ item['cover_url'] }}" alt="">{% else %}<span class="content-placeholder">MC</span>{% endif %}<span class="content-row-copy"><b>{{ item['title'] }}</b><small>{{ item['summary'] or 'اطلاعیه رسمی MILAD CRAFT' }}</small><em>{{ item['created_at'][:10] }}</em></span><span class="row-arrow">↗</span></a>{% else %}<div class="empty-state">هنوز خبری منتشر نشده است.</div>{% endfor %}</div>
-    <div class="content-column"><div class="content-column-title"><span class="content-icon content-icon-blue">A</span><h3>راهنما و آموزش</h3></div>{% for post in latest_posts %}<a class="content-row" href="{{ url_for('blog_post',post_id=post['id']) }}">{% if post['cover_url'] %}<img src="{{ post['cover_url'] }}" alt="">{% else %}<span class="content-placeholder">MC</span>{% endif %}<span class="content-row-copy"><b>{{ post['title'] }}</b><small>{{ post['summary'] or 'راهنما و آموزش ماینکرفت' }}</small><em>{{ post['author'] }}</em></span><span class="row-arrow">↗</span></a>{% else %}<div class="empty-state">هنوز مطلب آموزشی منتشر نشده است.</div>{% endfor %}</div>
+    <div class="content-column"><div class="content-column-title"><span class="content-icon">N</span><h3>اخبار و اطلاعیه‌ها</h3></div>{% for item in latest_news %}<a class="content-row" href="{{ url_for('news_detail',news_id=item['id']) }}">{% if item['cover_url'] %}<img src="{{ item['cover_url'] }}" alt="" loading="lazy">{% else %}<span class="content-placeholder">MC</span>{% endif %}<span class="content-row-copy"><b>{{ item['title'] }}</b><small>{{ item['summary'] or 'اطلاعیه رسمی MILAD CRAFT' }}</small><em>{{ item['created_at'][:10] }}</em></span><span class="row-arrow">↗</span></a>{% else %}<div class="empty-state">هنوز خبری منتشر نشده است.</div>{% endfor %}</div>
+    <div class="content-column"><div class="content-column-title"><span class="content-icon content-icon-blue">A</span><h3>راهنما و آموزش</h3></div>{% for post in latest_posts %}<a class="content-row" href="{{ url_for('blog_post',post_id=post['id']) }}">{% if post['cover_url'] %}<img src="{{ post['cover_url'] }}" alt="" loading="lazy">{% else %}<span class="content-placeholder">MC</span>{% endif %}<span class="content-row-copy"><b>{{ post['title'] }}</b><small>{{ post['summary'] or 'راهنما و آموزش ماینکرفت' }}</small><em>{{ post['author'] }}</em></span><span class="row-arrow">↗</span></a>{% else %}<div class="empty-state">هنوز مطلب آموزشی منتشر نشده است.</div>{% endfor %}</div>
   </div>
 </section>
-<section class="join-banner"><div><span class="eyebrow">YOUR NEXT ADVENTURE STARTS HERE</span><h2>نوبت توست.</h2><p>حساب بساز، به سرور بپیوند و داستانت را شروع کن.</p></div><a class="button button-primary button-large" href="{{ url_for('account_register') }}">شروع ماجراجویی <span>←</span></a></section>
+
+<section class="mc-final-cta mc-reveal"><div><span class="mc-section-label">ماجراجویی از همین‌جا شروع می‌شود</span><h2>جهانت منتظر توست.</h2><p>آدرس سرور را کپی کن، نسخه پیشنهادی را اجرا کن و به MILAD CRAFT بپیوند.</p></div><div class="mc-final-actions"><button class="button button-primary button-large" type="button" data-copy="{{ server_address }}">کپی آدرس سرور</button><a class="button button-outline button-large" href="{{ telegram_url }}" target="_blank" rel="noopener noreferrer">کانال تلگرام ↗</a></div></section>
 {% endblock %}
-{% block scripts %}<script>
-fetch('{{ url_for("server_status") }}').then(r=>r.json()).then(d=>{const state=document.getElementById('server-state'),count=document.getElementById('server-count'),dot=document.getElementById('server-dot');if(d.online===true){state.textContent='سرور آنلاین است';count.textContent=(d.players_online||0)+' بازیکن آنلاین · '+(d.version||'نسخه در دسترس');dot.classList.add('online-indicator-active')}else if(d.online===false){state.textContent='سرور آفلاین است';count.textContent='در حال حاضر اتصال برقرار نیست'}else{state.textContent='وضعیت نامشخص';count.textContent='بررسی وضعیت موقتاً در دسترس نیست'}}).catch(()=>{document.getElementById('server-state').textContent='وضعیت نامشخص';document.getElementById('server-count').textContent='خطا در دریافت وضعیت سرور'});
-</script>{% endblock %}
+{% block scripts %}
+<script>
+(function(){
+  const items=document.querySelectorAll('.mc-reveal');
+  if('IntersectionObserver' in window && !window.matchMedia('(prefers-reduced-motion: reduce)').matches){
+    items.forEach(el=>el.classList.add('mc-reveal-pending'));
+    const observer=new IntersectionObserver(entries=>entries.forEach(entry=>{if(entry.isIntersecting){entry.target.classList.add('mc-reveal-visible');observer.unobserve(entry.target)}}),{threshold:0.12,rootMargin:'0px 0px -40px 0px'});
+    items.forEach(el=>observer.observe(el));
+  }
+  const state=document.getElementById('server-state'),count=document.getElementById('server-count'),dot=document.getElementById('server-dot');
+  fetch('{{ url_for("server_status") }}',{headers:{'Accept':'application/json'}}).then(r=>{if(!r.ok)throw new Error('status');return r.json()}).then(d=>{
+    if(d.online===true){state.textContent='سرور آنلاین است';count.textContent=(d.players_online||0)+' بازیکن آنلاین · نسخه‌های 1.8 تا 1.21.11';dot.classList.add('mc-status-dot-online')}
+    else if(d.online===false){state.textContent='سرور در دسترس نیست';count.textContent='اتصال به سرور برقرار نشد؛ بعداً دوباره بررسی کن';dot.classList.add('mc-status-dot-offline')}
+    else{state.textContent='وضعیت فعلاً نامشخص است';count.textContent='وضعیت سرور قابل دریافت نبود؛ آدرس سرور همچنان در دسترس است'}
+  }).catch(()=>{state.textContent='وضعیت فعلاً نامشخص است';count.textContent='مشکل موقت در دریافت وضعیت؛ آدرس: {{ server_address }}';dot.classList.add('mc-status-dot-unknown')});
+})();
+</script>
+{% endblock %}
