@@ -5,23 +5,23 @@
 <section class="hero-section hero-v3">
   <div class="hero-copy">
     <div class="eyebrow"><span class="status-pulse"></span> دنیای رسمی MILAD CRAFT <span class="eyebrow-divider">/</span> Minecraft {{ server_version }}</div>
-    <h1>داستانی که<br>با <span>تو شروع می‌شود.</span></h1>
-    <p class="hero-description">فقط وارد یک سرور نشو؛ وارد جهانی شو که انتخاب‌ها، شخصیت‌ها و ایده‌هایت می‌توانند بخشی از داستان آن باشند.</p>
+    <h1>جهانی از بلوک‌ها،<br><span>داستانی از آنِ تو.</span></h1>
+    <p class="hero-description">از ساخت‌وساز و رول‌پلی تا ماجراجویی با جامعه‌ای فعال؛ دنیای Minecraft را به سبک خودت تجربه کن. هر بلوک می‌تواند شروع یک داستان تازه باشد.</p>
     <div class="hero-actions">
       <button class="button button-primary button-large" type="button" data-copy="{{ server_address }}"><span class="button-symbol">↗</span><span>کپی آدرس سرور</span></button>
       <a class="button button-outline button-large" href="{{ url_for('account_register') }}">ساخت حساب <span class="button-arrow">←</span></a>
     </div>
-    <div class="hero-meta"><span><i class="meta-square"></i> Role Play</span><span><i class="meta-square meta-square-blue"></i> نسخه {{ server_version }}</span><span><i class="meta-square meta-square-gold"></i> از سال ۱۴۰۲</span></div>
+    <div class="hero-meta"><span><i class="meta-square"></i> Role Play</span><span><i class="meta-square meta-square-blue"></i> نسخه {{ server_version }}</span><span><i class="meta-square meta-square-gold"></i> از سال ۱۴۰۲</span></div><div class="hero-world-note"><span class="hero-world-note-mark">MC</span><span><b>دنیای MILAD CRAFT</b><small>بساز · نقش‌آفرینی کن · همراه شو</small></span><span class="hero-world-note-spark">✦</span></div>
   </div>
   <div class="hero-visual">
-    <div class="hero-image-frame"><img src="{{ site_images.get('hero_image') }}" alt="چشم‌انداز دنیای MILAD CRAFT"><div class="hero-image-shade"></div>
+    <div class="hero-image-frame"><img src="{{ site_images.get('hero_image') }}" alt="چشم‌انداز دنیای Minecraft در MILAD CRAFT" onerror="this.onerror=null;this.src='https://www.minecraft.net/content/dam/games/minecraft/key-art/MCV_The_Bogged_1920x1080.jpg'" onerror="this.onerror=null;this.src='https://www.minecraft.net/content/dam/games/minecraft/key-art/MCV_The_Bogged_1920x1080.jpg'"><div class="hero-image-shade"></div>
       <div class="hero-image-topline"><span class="hero-image-index">WORLD / 001</span><span class="hero-live"><i></i> SERVER STATUS</span></div>
       <div class="hero-image-title"><span>BUILD YOUR LEGACY</span><b>جهان منتظر توست.</b></div>
       <div class="floating-label label-bottom"><span class="online-indicator" id="server-dot"></span><span><b id="server-state">در حال بررسی وضعیت</b><small id="server-count">وضعیت سرور</small></span></div>
     </div>
     <div class="hero-image-caption"><span>01 — MILAD CRAFT</span><span>PLAY YOUR STORY</span></div>
   </div>
-  <div class="hero-orbit hero-orbit-one"></div><div class="hero-orbit hero-orbit-two"></div>
+  <div class="hero-orbit hero-orbit-one"></div><div class="hero-orbit hero-orbit-two"></div><div class="hero-pixel-float hero-pixel-float-one"></div><div class="hero-pixel-float hero-pixel-float-two"></div>
 </section>
 <section class="server-strip">
   <div class="server-strip-title"><span class="tiny-label">آماده ورود؟</span><b>در چند ثانیه به ما بپیوند</b></div>
@@ -31,13 +31,13 @@
 <section class="section-block" id="about">
   <div class="section-heading"><div><span class="eyebrow">THE EXPERIENCE</span><h2>یک سرور؛ <span>هزاران امکان.</span></h2></div><p>از ساختن شخصیت تا خلق مکان‌های تازه؛ تجربه‌ای که با حضور جامعه معنا پیدا می‌کند.</p></div>
   <div class="feature-grid">
-    <article class="feature-card feature-card-wide"><img src="{{ site_images.get('roleplay_image') }}" alt="تجربه رول‌پلی در MILAD CRAFT"><div class="feature-overlay"><span class="feature-number">01 / MODE</span><h3>Role Play</h3><p>شخصیتت را بساز، نقش خودت را پیدا کن و داستانی خلق کن که فقط متعلق به توست.</p><a href="{{ url_for('academy') }}">راهنمای شروع <span>←</span></a></div></article>
-    <article class="feature-card"><img src="{{ site_images.get('survival_image') }}" alt="ساخت‌وساز و پیشرفت در بازی"><div class="feature-overlay"><span class="feature-number">02 / CREATE</span><h3>ساختن و پیشرفت</h3><p>ایده‌ها را به سازه‌ها و پروژه‌های ماندگار تبدیل کن.</p></div></article>
-    <article class="feature-card"><img src="{{ site_images.get('about_image') }}" alt="جامعه بازیکنان"><div class="feature-overlay"><span class="feature-number">03 / COMMUNITY</span><h3>جامعه‌ای زنده</h3><p>با بازیکنان همراه شو، تجربه‌ات را به اشتراک بگذار و بخشی از داستان باش.</p><a href="{{ telegram_url }}" target="_blank" rel="noopener noreferrer">پیوستن به تلگرام <span>↗</span></a></div></article>
+    <article class="feature-card feature-card-wide"><img src="{{ site_images.get('roleplay_image') }}" alt="تجربه رول‌پلی در دنیای Minecraft" onerror="this.onerror=null;this.src='https://www.minecraft.net/content/dam/games/minecraft/key-art/MCV_Trial_Chambers_1920x1080.jpg'"><div class="feature-overlay"><span class="feature-number">01 / MODE</span><h3>Role Play</h3><p>شخصیتت را بساز، نقش خودت را پیدا کن و داستانی خلق کن که فقط متعلق به توست.</p><a href="{{ url_for('academy') }}">راهنمای شروع <span>←</span></a></div></article>
+    <article class="feature-card"><img src="{{ site_images.get('survival_image') }}" alt="ساخت‌وساز در Minecraft" onerror="this.onerror=null;this.src='https://www.minecraft.net/content/dam/games/minecraft/key-art/MCV_BambooJungle_1920x1080.jpg'"><div class="feature-overlay"><span class="feature-number">02 / CREATE</span><h3>ساختن و پیشرفت</h3><p>ایده‌ها را به سازه‌ها و پروژه‌های ماندگار تبدیل کن.</p></div></article>
+    <article class="feature-card"><img src="{{ site_images.get('about_image') }}" alt="جامعه بازیکنان Minecraft" onerror="this.onerror=null;this.src='https://www.minecraft.net/content/dam/games/minecraft/key-art/MCV_The_Creaking_1920x1080.jpg'"><div class="feature-overlay"><span class="feature-number">03 / COMMUNITY</span><h3>جامعه‌ای زنده</h3><p>با بازیکنان همراه شو، تجربه‌ات را به اشتراک بگذار و بخشی از داستان باش.</p><a href="{{ telegram_url }}" target="_blank" rel="noopener noreferrer">پیوستن به تلگرام <span>↗</span></a></div></article>
   </div>
 </section>
 <section class="section-block section-split">
-  <div class="split-image"><img src="{{ site_images.get('gallery_image_1') }}" alt="ساخت جهان با همکاری بازیکنان"><div class="image-stamp">MADE<br>TOGETHER</div></div>
+  <div class="split-image"><img src="{{ site_images.get('gallery_image_1') }}" alt="ساخت جهان Minecraft با همکاری بازیکنان" onerror="this.onerror=null;this.src='https://www.minecraft.net/content/dam/games/minecraft/key-art/MCV_The_Creaking_1920x1080.jpg'"><div class="image-stamp">MADE<br>TOGETHER</div></div>
   <div class="split-copy"><span class="eyebrow">YOUR ACCOUNT, YOUR JOURNEY</span><h2>یک حساب برای<br><span>تمام مسیر تو.</span></h2><p>پروفایل، فعالیت‌ها، دیدگاه‌ها و اعلان‌ها را در یک مکان مدیریت کن. اگر به تیم کارکنان بپیوندی، همان حساب با دسترسی جدید ادامه می‌دهد.</p><a class="text-link" href="{{ url_for('account_portal') }}">ورود به فضای کاربری <span>←</span></a></div>
 </section>
 <section class="section-block content-section">
