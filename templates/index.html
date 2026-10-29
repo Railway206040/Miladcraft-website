@@ -66,16 +66,53 @@
   </div>
 </section>
 
-<section class="mc-telegram-section mc-reveal" id="telegram">
-  <div class="mc-telegram-art"><img src="{{ site_images.get('gallery_image_1') or url_for('static', filename='images/minecraft-village.svg') }}" alt="جهان MILAD CRAFT" loading="lazy" onerror="this.onerror=null;this.src='{{ url_for('static', filename='images/minecraft-village.svg') }}';"><div class="mc-telegram-art-shade"></div><span class="mc-telegram-monogram">MC</span></div>
-  <div class="mc-telegram-copy"><span class="mc-section-label">همیشه در جریان باش</span><h2>خبرهای میلاد کرفت<br><span>یک کلیک با تو فاصله دارند.</span></h2><p>برای اطلاع از خبرهای سرور، برنامه‌های آینده، تغییرات و زمان آماده‌شدن گیم‌مودهای جدید، کانال رسمی تلگرام را دنبال کن.</p><a class="button button-primary button-large" href="{{ telegram_url }}" target="_blank" rel="noopener noreferrer">ورود به کانال تلگرام <span class="button-arrow">↗</span></a><small>@Milad_craft</small></div>
+<section class="mc-academy-section mc-reveal" id="academy">
+  <div class="mc-academy-visual">
+    <img src="{{ site_images.get('gallery_image_2') or url_for('static', filename='images/minecraft-world.svg') }}" alt="آکادمی میلاد کرفت؛ فضای یادگیری Minecraft" loading="lazy" onerror="this.onerror=null;this.src='{{ url_for('static', filename='images/minecraft-world.svg') }}';">
+    <span class="mc-academy-image-label"><b>MC</b><span>LEARN · BUILD · PLAY</span></span>
+  </div>
+  <div class="mc-academy-copy">
+    <span class="mc-section-label">MILAD CRAFT ACADEMY</span>
+    <h2>آکادمی میلاد کرفت</h2>
+    <p>راهنماها، آموزش‌ها و نکته‌هایی برای بهتر بازی‌کردن و آشنایی با دنیای میلاد کرفت؛ از همین‌جا مسیر یادگیری‌ات را شروع کن.</p>
+    <div class="mc-academy-highlights"><span>راهنماهای کاربردی</span><span>آموزش‌های سرور</span><span>مناسب بازیکنان تازه‌وارد</span></div>
+    <a class="button button-primary button-large" href="{{ url_for('academy') }}">ورود به آکادمی <span class="button-arrow">↗</span></a>
+  </div>
 </section>
 
-<section class="mc-section mc-content-section mc-reveal">
-  <div class="mc-section-heading"><div><span class="mc-section-label">تازه از دنیای ما</span><h2>خبرها و راهنماها</h2></div><div class="heading-links"><a href="{{ url_for('news_page') }}">همه اخبار ←</a><a href="{{ url_for('academy') }}">مرکز آموزش ←</a></div></div>
-  <div class="content-grid">
-    <div class="content-column"><div class="content-column-title"><span class="content-icon">N</span><h3>اخبار و اطلاعیه‌ها</h3></div>{% for item in latest_news %}<a class="content-row" href="{{ url_for('news_detail',news_id=item['id']) }}">{% if item['cover_url'] %}<img src="{{ item['cover_url'] }}" alt="" loading="lazy">{% else %}<span class="content-placeholder">MC</span>{% endif %}<span class="content-row-copy"><b>{{ item['title'] }}</b><small>{{ item['summary'] or 'اطلاعیه رسمی MILAD CRAFT' }}</small><em>{{ item['created_at'][:10] }}</em></span><span class="row-arrow">↗</span></a>{% else %}<div class="empty-state">هنوز خبری منتشر نشده است.</div>{% endfor %}</div>
-    <div class="content-column"><div class="content-column-title"><span class="content-icon content-icon-blue">A</span><h3>راهنما و آموزش</h3></div>{% for post in latest_posts %}<a class="content-row" href="{{ url_for('blog_post',post_id=post['id']) }}">{% if post['cover_url'] %}<img src="{{ post['cover_url'] }}" alt="" loading="lazy">{% else %}<span class="content-placeholder">MC</span>{% endif %}<span class="content-row-copy"><b>{{ post['title'] }}</b><small>{{ post['summary'] or 'راهنما و آموزش ماینکرفت' }}</small><em>{{ post['author'] }}</em></span><span class="row-arrow">↗</span></a>{% else %}<div class="empty-state">هنوز مطلب آموزشی منتشر نشده است.</div>{% endfor %}</div>
+<section class="mc-section mc-academy-latest mc-reveal">
+  <div class="mc-section-heading"><div><span class="mc-section-label">از آکادمی</span><h2>تازه‌های آکادمی میلاد کرفت</h2></div><a class="mc-section-more" href="{{ url_for('academy') }}">مشاهده همه آموزش‌ها <span>←</span></a></div>
+  <div class="mc-learning-grid">
+    {% for post in latest_posts %}
+    <a class="mc-learning-card" href="{{ url_for('blog_post',post_id=post['id']) }}">
+      <div class="mc-learning-image">{% if post['cover_url'] %}<img src="{{ post['cover_url'] }}" alt="" loading="lazy">{% else %}<img src="{{ url_for('static', filename='images/minecraft-village.svg') }}" alt="" loading="lazy">{% endif %}<span>آکادمی</span></div>
+      <div class="mc-learning-body"><h3>{{ post['title'] }}</h3><p>{{ post['summary'] or 'راهنما و آموزش برای بازیکنان میلاد کرفت.' }}</p><small>{{ post['author'] }} <span>←</span></small></div>
+    </a>
+    {% else %}
+    <div class="mc-empty-learning"><span>MC</span><div><b>آموزش‌ها به‌زودی اینجا قرار می‌گیرند</b><p>برای دیدن مطالب جدید، سری به آکادمی بزن.</p></div><a href="{{ url_for('academy') }}">رفتن به آکادمی ←</a></div>
+    {% endfor %}
+  </div>
+</section>
+
+<section class="mc-section mc-news-section mc-reveal" id="news">
+  <div class="mc-section-heading"><div><span class="mc-section-label">آخرین اطلاعیه‌ها</span><h2>اخبار میلاد کرفت</h2><p>خبرهای سرور، اطلاعیه‌ها و تغییرات تازه را از این بخش دنبال کن.</p></div><a class="mc-section-more" href="{{ url_for('news_page') }}">همه اخبار <span>←</span></a></div>
+  <div class="mc-news-grid">
+    {% for item in latest_news %}
+    <a class="mc-news-card" href="{{ url_for('news_detail',news_id=item['id']) }}">
+      <div class="mc-news-image">{% if item['cover_url'] %}<img src="{{ item['cover_url'] }}" alt="" loading="lazy">{% else %}<img src="{{ url_for('static', filename='images/minecraft-night.svg') }}" alt="" loading="lazy">{% endif %}<span>خبر رسمی</span></div>
+      <div class="mc-news-body"><small>{{ item['created_at'][:10] }}</small><h3>{{ item['title'] }}</h3><p>{{ item['summary'] or 'آخرین خبرها و اطلاعیه‌های رسمی MILAD CRAFT.' }}</p><span class="mc-news-read">ادامه خبر ←</span></div>
+    </a>
+    {% else %}
+    <div class="mc-empty-learning"><span>NEWS</span><div><b>هنوز خبری منتشر نشده است</b><p>اطلاعیه‌های جدید در این قسمت نمایش داده می‌شوند.</p></div><a href="{{ url_for('news_page') }}">بخش اخبار ←</a></div>
+    {% endfor %}
+  </div>
+</section>
+
+<section class="mc-telegram-card-section mc-reveal" id="telegram">
+  <div class="mc-telegram-card">
+    <div class="mc-telegram-icon-wrap"><img src="{{ url_for('static', filename='images/telegram-plane.svg') }}" alt="لوگوی تلگرام" loading="lazy"></div>
+    <div class="mc-telegram-card-copy"><span class="mc-section-label">MILAD CRAFT COMMUNITY</span><h2>پی‌گیر ما باشید</h2><p>برای باخبرشدن از اطلاعیه‌ها، تغییرات سرور و برنامه‌های آینده، کانال رسمی میلاد کرفت را دنبال کن.</p><span class="mc-telegram-handle" dir="ltr">@Milad_craft</span></div>
+    <a class="button button-primary button-large" href="{{ telegram_url }}" target="_blank" rel="noopener noreferrer">ورود به کانال تلگرام <span class="button-arrow">↗</span></a>
   </div>
 </section>
 
