@@ -21,14 +21,12 @@
   </div>
   <div class="staff-home-stats">
     <article><span class="staff-stat-symbol">P</span><div><small>پروژه‌های ثبت‌شده</small><b>{{ projects|length }}</b></div></article>
-    <article><span class="staff-stat-symbol staff-stat-purple">T</span><div><small>تسک‌های قابل پیگیری</small><b>{{ my_tasks|length }}</b></div></article>
     <article><span class="staff-stat-symbol staff-stat-orange">!</span><div><small>اخطارهای حساب من</small><b>{{ warnings|length }}</b></div></article>
     <article><span class="staff-stat-symbol staff-stat-green">●</span><div><small>کارکنان آنلاین Minecraft</small><b>{{ online_count }}</b></div></article>
   </div>
   <div class="staff-home-section-heading"><div><span class="eyebrow">YOUR WORKSPACE</span><h2>ابزارهای داشبورد</h2><p>هر ابزار صفحه مستقل خودش را دارد؛ برای جابه‌جایی از دکمه بازگشت همان صفحه استفاده کن.</p></div><span class="staff-home-section-count">دسترسی بر اساس نقش</span></div>
   <div class="staff-tool-grid">
     <a class="staff-tool-card staff-tool-featured" href="{{ url_for('staff_dashboard',section='projects') }}"><span class="staff-tool-icon">P</span><span class="staff-tool-label">PROJECTS</span><h3>پروژه‌ها</h3><p>مشاهده پروژه‌ها، ظرفیت Builderها و ساخت پروژه در صورت داشتن دسترسی.</p><span class="staff-tool-link">ورود به پروژه‌ها <b>←</b></span><i class="staff-tool-card-glow"></i></a>
-    <a class="staff-tool-card" href="{{ url_for('staff_dashboard',section='tasks') }}"><span class="staff-tool-icon staff-icon-purple">T</span><span class="staff-tool-label">TASK TRACKER</span><h3>تسک‌ها</h3><p>پیگیری کارهای تخصیص‌یافته و به‌روزرسانی وضعیت انجام آن‌ها.</p><span class="staff-tool-link">مدیریت تسک‌ها <b>←</b></span></a>
     <a class="staff-tool-card" href="{{ url_for('staff_dashboard',section='messenger') }}"><span class="staff-tool-icon staff-icon-cyan">M</span><span class="staff-tool-label">MILAD CHAT</span><h3>پیام‌رسان کارکنان</h3><p>ورود به گفت‌وگوی گروهی کارکنان و پیام‌های خصوصی.</p><span class="staff-tool-link">باز کردن پیام‌رسان <b>←</b></span></a>
     <a class="staff-tool-card" href="{{ url_for('staff_dashboard',section='warnings') }}"><span class="staff-tool-icon staff-icon-orange">!</span><span class="staff-tool-label">STAFF SAFETY</span><h3>اخطارها</h3><p>مشاهده اخطارهای خود و ثبت اخطار برای نقش‌های مجاز.</p><span class="staff-tool-link">مشاهده اخطارها <b>←</b></span></a>
     <a class="staff-tool-card" href="{{ url_for('staff_dashboard',section='activity') }}"><span class="staff-tool-icon staff-icon-green">A</span><span class="staff-tool-label">ACTIVITY LOG</span><h3>گزارش فعالیت</h3><p>مرور رویدادهای ثبت‌شده و تاریخچه فعالیت کارکنان.</p><span class="staff-tool-link">مشاهده گزارش‌ها <b>←</b></span></a>

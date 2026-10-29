@@ -78,9 +78,13 @@ class MiladCraftWebsiteTests(unittest.TestCase):
         self.assertIn("/account/profile", login.headers["Location"])
         profile = self.client.get("/account/profile")
         self.assertEqual(profile.status_code, 200)
-        self.assertIn("داشبورد کارکنان", profile.get_data(as_text=True))
+        profile_html = profile.get_data(as_text=True)
+        self.assertIn("داشبورد کارکنان", profile_html)
+        self.assertLess(profile_html.index("profile-staff-entry"), profile_html.index("profile-layout"))
         self.assertEqual(self.client.get("/staff").status_code, 200)
         self.assertEqual(self.client.get("/staff?section=projects").status_code, 200)
+        removed_tasks = self.client.get("/staff?section=tasks").get_data(as_text=True)
+        self.assertNotIn("تسک‌ها", removed_tasks)
 
     def test_project_capacity_and_builder_join(self):
         self.login()
