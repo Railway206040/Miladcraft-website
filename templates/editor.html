@@ -1,19 +1,19 @@
 {% extends "base.html" %}
-{% block title %}ویرایشگر مرکز آموزش | MILAD CRAFT{% endblock %}
+{% block title %}{{ 'ویرایشگر اخبار' if mode == 'news' else 'ویرایشگر آکادمی' }} | MILAD CRAFT{% endblock %}
 {% block content %}
 <section class="editor-page blog-studio">
-  <a class="back-link" href="{{ url_for('staff_dashboard') }}#academy-content">← بازگشت به پنل کارکنان</a>
-  <div class="blog-studio-header"><div><span class="eyebrow">MILAD CRAFT / PUBLISHING STUDIO</span><h1>{{ 'ویرایش مطلب' if post else 'استودیوی نوشتن مقاله' }}</h1><p>یک مطلب کامل با تصویر، تیتر، قالب‌بندی و پیش‌نمایش آماده کن.</p></div><div class="blog-studio-badge"><span></span> ویرایشگر محتوا</div></div>
-  <form method="post" class="blog-studio-grid" id="blog-editor-form">
+  <a class="back-link" href="{{ url_for('staff_dashboard', section='news-management' if mode == 'news' else 'academy-content') }}">← بازگشت به پنل کارکنان</a>
+  <div class="blog-studio-header"><div><span class="eyebrow">MILAD CRAFT / PUBLISHING STUDIO</span><h1>{% if mode == 'news' %}{{ 'ویرایش خبر' if post else 'استودیوی انتشار اخبار' }}{% else %}{{ 'ویرایش مطلب' if post else 'استودیوی نوشتن مقاله' }}{% endif %}</h1><p>عنوان، کاور، خلاصه، محتوای قالب‌بندی‌شده و پیش‌نمایش زنده را مدیریت کن.</p></div><div class="blog-studio-badge"><span></span> ویرایشگر {{ 'اخبار' if mode == 'news' else 'آکادمی' }}</div></div>
+  <form method="post" action="{{ url_for('news_editor', id=post['id']) if mode == 'news' and post else url_for('news_editor') if mode == 'news' else url_for('blog_editor', id=post['id']) if post else url_for('blog_editor') }}" class="blog-studio-grid" id="blog-editor-form">
     {{ csrf_field() }}
     <div class="blog-editor-main">
       <section class="panel blog-meta-panel"><div class="blog-section-title"><span class="blog-step">01</span><div><h2>مشخصات مطلب</h2><p>عنوان و خلاصه‌ای که در کارت‌های سایت نمایش داده می‌شود.</p></div></div>
         <label class="blog-field">عنوان مطلب<input name="title" id="blog-title" required maxlength="180" value="{{ post['title'] if post else '' }}" placeholder="عنوان جذاب و روشن بنویس..."></label>
         <label class="blog-field">خلاصه<textarea name="summary" id="blog-summary" rows="2" maxlength="500" placeholder="در چند جمله توضیح بده این مطلب درباره چیست...">{{ post['summary'] if post else '' }}</textarea></label>
-        <label class="blog-field">تصویر کاور (HTTPS)<input type="url" name="cover_url" id="blog-cover" value="{{ post['cover_url'] if post else '' }}" placeholder="https://..."></label>
+        <label class="blog-field">تصویر کاور (اختیاری، لینک HTTPS)<input type="url" name="cover_url" id="blog-cover" value="{{ post['cover_url'] if post else '' }}" placeholder="https://..."></label>
         <div class="blog-cover-preview" id="blog-cover-preview"><div class="cover-preview-placeholder"><span>MC</span><b>پیش‌نمایش تصویر کاور</b><small>با وارد کردن لینک تصویر، اینجا نمایش داده می‌شود.</small></div></div>
       </section>
-      <section class="panel blog-writing-panel"><div class="blog-section-title"><span class="blog-step">02</span><div><h2>محتوای مقاله</h2><p>از ابزارها برای ساختاردهی متن استفاده کن.</p></div></div>
+      <section class="panel blog-writing-panel"><div class="blog-section-title"><span class="blog-step">02</span><div><h2>{{ 'محتوای خبر' if mode == 'news' else 'محتوای مقاله' }}</h2><p>از ابزارهای قالب‌بندی برای ساختاردهی متن استفاده کن.</p></div></div>
         <div class="blog-toolbar" role="toolbar" aria-label="ابزارهای قالب‌بندی متن">
           <button type="button" data-insert="heading" title="تیتر بخش">H2</button><button type="button" data-insert="subheading" title="زیرتیتر">H3</button><button type="button" data-insert="paragraph" title="پاراگراف">¶</button><span></span>
           <button type="button" data-insert="bold" title="متن پررنگ"><b>B</b></button><button type="button" data-insert="italic" title="متن مورب"><i>I</i></button><button type="button" data-insert="underline" title="زیرخط">U̲</button><button type="button" data-insert="quote" title="نقل‌قول">❞</button><button type="button" data-insert="code" title="کد">&lt;/&gt;</button><span></span>
@@ -25,16 +25,16 @@
       </section>
     </div>
     <aside class="blog-editor-sidebar">
-      <section class="panel blog-publish-panel"><div class="blog-section-title"><span class="blog-step">03</span><div><h2>انتشار</h2><p>وضعیت مطلب را مشخص کن.</p></div></div>
-        <label class="blog-publish-toggle"><input type="checkbox" name="published" value="1" {% if not post or post['published'] %}checked{% endif %}><span><b>انتشار در سایت</b><small>با خاموش کردن، مطلب به‌صورت پیش‌نویس ذخیره می‌شود.</small></span></label>
-        <button class="button button-primary button-full button-large" type="submit">ذخیره مطلب <span>←</span></button>
-        <a class="button button-quiet button-full" href="{{ url_for('academy') }}">رفتن به مرکز آموزش</a>
+      <section class="panel blog-publish-panel"><div class="blog-section-title"><span class="blog-step">03</span><div><h2>انتشار</h2><p>وضعیت {{ 'خبر' if mode == 'news' else 'مطلب' }} را مشخص کن.</p></div></div>
+        <label class="blog-publish-toggle"><input type="checkbox" name="published" value="1" {% if not post or post['published'] %}checked{% endif %}><span><b>انتشار در سایت</b><small>با خاموش کردن، {{ 'خبر' if mode == 'news' else 'مطلب' }} به‌صورت پیش‌نویس ذخیره می‌شود.</small></span></label>
+        <button class="button button-primary button-full button-large" type="submit">{{ 'ذخیره خبر' if mode == 'news' else 'ذخیره مطلب' }} <span>←</span></button>
+        <a class="button button-quiet button-full" href="{{ url_for('news_page') if mode == 'news' else url_for('academy') }}">رفتن به {{ 'صفحه اخبار' if mode == 'news' else 'آکادمی' }}</a>
       </section>
-      <section class="panel blog-tags-panel"><div class="blog-section-title"><span class="blog-step">04</span><div><h2>برچسب‌ها</h2><p>برای دسته‌بندی و پیدا شدن مطلب.</p></div></div>
+      {% if mode != 'news' %}<section class="panel blog-tags-panel"><div class="blog-section-title"><span class="blog-step">04</span><div><h2>برچسب‌ها</h2><p>برای دسته‌بندی و پیدا شدن مطلب.</p></div></div>
         <div class="blog-tag-options">{% for tag in tags %}<label class="blog-tag-option"><input type="checkbox" name="tag_ids" value="{{ tag['id'] }}" {% if tag['id'] in selected_tag_ids %}checked{% endif %}><span>{{ tag['name'] }}</span></label>{% else %}<small>از پنل کارکنان ابتدا برچسب بساز.</small>{% endfor %}</div>
-        <a class="blog-manage-tags" href="{{ url_for('staff_dashboard') }}#academy-tags">مدیریت برچسب‌ها ←</a>
-      </section>
-      <section class="panel blog-writing-tips"><span class="eyebrow">WRITING NOTES</span><h3>چند نکته برای مقاله بهتر</h3><ul><li>عنوان را دقیق و قابل‌فهم انتخاب کن.</li><li>مقاله را به بخش‌های کوتاه تقسیم کن.</li><li>برای تصاویر، لینک HTTPS قرار بده.</li><li>قبل از انتشار پیش‌نمایش را بررسی کن.</li></ul></section>
+        <a class="blog-manage-tags" href="{{ url_for('staff_dashboard', section='academy-content') }}#academy-tags">مدیریت برچسب‌ها ←</a>
+      </section>{% endif %}
+      <section class="panel blog-writing-tips"><span class="eyebrow">WRITING NOTES</span><h3>{{ 'چند نکته برای خبر بهتر' if mode == 'news' else 'چند نکته برای مقاله بهتر' }}</h3><ul><li>عنوان را دقیق و قابل‌فهم انتخاب کن.</li><li>محتوا را به بخش‌های کوتاه تقسیم کن.</li><li>برای تصاویر داخل متن، لینک HTTPS قرار بده.</li><li>قبل از انتشار پیش‌نمایش را بررسی کن.</li></ul></section>
     </aside>
   </form>
 </section>

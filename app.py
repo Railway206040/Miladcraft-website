@@ -940,6 +940,49 @@ def news_detail(news_id):
         abort(404)
     return render_template("news_detail.html",item=item)
 
+@app.route("/news/editor", methods=["GET", "POST"])
+@staff_required
+def news_editor():
+    if g.account["role"] not in CONTENT_ROLES:
+        abort(403)
+    news_id = request.args.get("id", type=int)
+    with connect_db() as db:
+        item = db.execute("SELECT * FROM news WHERE id=?", (news_id,)).fetchone() if news_id else None
+        if news_id and not item:
+            abort(404)
+        if request.method == "POST":
+            title = clean_text(request.form.get("title", ""), 180)
+            summary = clean_text(request.form.get("summary", ""), 500)
+            cover = request.form.get("cover_url", "").strip()
+            content = bleach.clean(request.form.get("content", ""), tags=BLOG_TAGS, attributes=BLOG_ATTRS, protocols=BLOG_PROTOCOLS, strip=True)
+            published = 1 if request.form.get("published") == "1" else 0
+            if not title or not bleach.clean(content, tags=[], strip=True).strip():
+                flash("عنوان و محتوای خبر الزامی است.", "error")
+            elif cover and not cover.startswith("https://"):
+                flash("آدرس کاور باید HTTPS باشد.", "error")
+            elif item:
+                db.execute("UPDATE news SET title=?,summary=?,content=?,cover_url=?,published=? WHERE id=?", (title, summary, content, cover, published, news_id))
+                flash("خبر به‌روزرسانی شد.", "success")
+                return redirect(url_for("staff_dashboard", section="news-management"))
+            else:
+                db.execute("INSERT INTO news(title,summary,content,cover_url,author,published) VALUES(?,?,?,?,?,?)", (title, summary, content, cover, g.account["username"], published))
+                flash("خبر ذخیره شد.", "success")
+                return redirect(url_for("staff_dashboard", section="news-management"))
+    return render_template("editor.html", post=item, tags=[], selected_tag_ids=[], mode="news")
+
+@app.route("/news/<int:news_id>/delete", methods=["POST"])
+@staff_required
+def delete_news(news_id):
+    if g.account["role"] not in CONTENT_ROLES:
+        abort(403)
+    with connect_db() as db:
+        item = db.execute("SELECT id FROM news WHERE id=?", (news_id,)).fetchone()
+        if not item:
+            abort(404)
+        db.execute("DELETE FROM news WHERE id=?", (news_id,))
+    flash("خبر حذف شد.", "success")
+    return redirect(url_for("staff_dashboard", section="news-management"))
+
 @app.route("/news/create", methods=["POST"])
 @staff_required
 def create_news():
@@ -1105,7 +1148,7 @@ def blog_editor():
                     db.execute("INSERT OR IGNORE INTO post_tags(post_id,tag_id) SELECT ?,id FROM academy_tags WHERE id=?", (new_id,tag_id))
                 flash("مطلب ساخته شد.", "success")
                 return redirect(url_for("staff_dashboard", section="academy-content"))
-    return render_template("editor.html",post=post,tags=tags,selected_tag_ids=selected_tag_ids)
+    return render_template("editor.html",post=post,tags=tags,selected_tag_ids=selected_tag_ids,mode="academy")
 
 @app.route("/academy/<int:post_id>/delete", methods=["POST"])
 @staff_required
