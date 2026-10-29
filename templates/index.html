@@ -85,7 +85,7 @@
   <div class="mc-learning-grid">
     {% for post in latest_posts %}
     <a class="mc-learning-card" href="{{ url_for('blog_post',post_id=post['id']) }}">
-      {% if post['cover_url'] %}<div class="mc-learning-image"><img src="{{ post['cover_url'] }}" alt="" loading="lazy"><span>آکادمی</span></div>{% endif %}
+      <div class="mc-learning-image {% if not post['cover_url'] %}mc-cover-fallback mc-cover-academy{% endif %}">{% if post['cover_url'] %}<img src="{{ post['cover_url'] }}" alt="" loading="lazy">{% else %}<span class="mc-cover-brand">MILAD CRAFT</span>{% endif %}<span>آکادمی</span></div>
       <div class="mc-learning-body">{% if not post['cover_url'] %}<span class="article-category-badge">آکادمی</span>{% endif %}<h3>{{ post['title'] }}</h3><p>{{ post['summary'] or 'راهنما و آموزش برای بازیکنان میلاد کرفت.' }}</p><small>{{ post['author'] }} <span>←</span></small></div>
     </a>
     {% else %}
@@ -99,7 +99,7 @@
   <div class="mc-news-grid">
     {% for item in latest_news %}
     <a class="mc-news-card" href="{{ url_for('news_detail',news_id=item['id']) }}">
-      {% if item['cover_url'] %}<div class="mc-news-image"><img src="{{ item['cover_url'] }}" alt="" loading="lazy"><span>اخبار</span></div>{% endif %}
+      <div class="mc-news-image {% if not item['cover_url'] %}mc-cover-fallback mc-cover-news{% endif %}">{% if item['cover_url'] %}<img src="{{ item['cover_url'] }}" alt="" loading="lazy">{% else %}<span class="mc-cover-brand">MILAD CRAFT</span>{% endif %}<span>اخبار</span></div>
       <div class="mc-news-body">{% if not item['cover_url'] %}<span class="article-category-badge">اخبار</span>{% endif %}<small>{{ item['created_at'][:10] }}</small><h3>{{ item['title'] }}</h3><p>{{ item['summary'] or 'آخرین خبرها و اطلاعیه‌های رسمی MILAD CRAFT.' }}</p><span class="mc-news-read">ادامه خبر ←</span></div>
     </a>
     {% else %}
