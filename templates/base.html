@@ -23,7 +23,7 @@
     <nav class="site-nav" aria-label="ناوبری اصلی">
       <a href="{{ url_for('index') }}" class="{% if request.endpoint=='index' %}nav-current{% endif %}">خانه</a>
       <a href="{{ url_for('news_page') }}" class="{% if request.endpoint in ['news_page','news_detail'] %}nav-current{% endif %}">اخبار</a>
-      <a href="{{ url_for('academy') }}" class="{% if request.endpoint in ['academy','blog_post'] %}nav-current{% endif %}">آموزش</a>
+      <a href="{{ url_for('academy') }}" class="{% if request.endpoint in ['academy','blog_post'] %}nav-current{% endif %}">آکادمی</a>
       <a href="{{ telegram_url }}" target="_blank" rel="noopener noreferrer">جامعه تلگرام <span class="external-arrow">↗</span></a>
     </nav>
     <div class="header-actions">
