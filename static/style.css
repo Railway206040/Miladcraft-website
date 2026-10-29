@@ -561,3 +561,11 @@ h1,h2,h3,h4,p,a,small,b,strong,span,code{overflow-wrap:anywhere}
 .article-detail-cover-wrap.category-cover-news:before{content:"";position:absolute;inset:12px;z-index:1;border:1px solid rgba(117,195,255,.25);border-radius:10px;pointer-events:none}
 .article-detail-cover-wrap.category-cover-news>span{z-index:2;inset:0;display:grid;place-items:center;padding:18px;text-align:center;color:#c6edff;font-size:clamp(20px,3vw,30px);font-weight:900}
 .article-detail-cover-wrap.category-cover-news>b{z-index:3}
+
+/* Apply the academy-style fallback to every news cover, including homepage cards. */
+.mc-news-image.mc-cover-fallback{position:relative!important;overflow:hidden;background:radial-gradient(ellipse at 72% 18%,rgba(34,211,238,.26),transparent 45%),linear-gradient(135deg,#0b1727,#124158 55%,#09111f)!important}
+.mc-news-image.mc-cover-fallback:before{content:"";position:absolute;inset:12px;z-index:1;border:1px solid rgba(117,195,255,.25);border-radius:10px;pointer-events:none}
+.mc-news-image.mc-cover-fallback:after{display:none!important}
+.mc-news-image.mc-cover-fallback .mc-cover-brand{position:absolute!important;inset:0!important;z-index:2!important;display:grid!important;place-items:center!important;width:100%!important;height:100%!important;max-width:none!important;padding:18px!important;text-align:center!important;color:#c6edff!important;font-size:clamp(18px,3vw,30px)!important;font-weight:900!important;line-height:1.5!important;text-shadow:none!important}
+.mc-news-image.mc-cover-fallback .mc-cover-category{position:absolute;right:12px;bottom:12px;z-index:3;padding:5px 10px;border:1px solid rgba(117,195,255,.32);border-radius:8px;background:rgba(7,15,28,.76);color:#dceeff;font-size:11px;line-height:1.6}
+@media(max-width:760px){.mc-news-image.mc-cover-fallback .mc-cover-brand{font-size:clamp(18px,5vw,25px)!important}}
