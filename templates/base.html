@@ -17,7 +17,7 @@
   <header class="site-header">
     <a class="brand" href="{{ url_for('index') }}" aria-label="صفحه اصلی MILAD CRAFT">
       <span class="brand-mark-wrap"><img src="{{ site_images.get('site_logo') or url_for('static', filename='logo.svg') }}" alt="" class="brand-mark"></span>
-      <span class="brand-name">MILAD<span>CRAFT</span><small>YOUR WORLD. YOUR STORY.</small></span>
+      <span class="brand-name">MILAD<span> CRAFT</span><small>YOUR WORLD. YOUR STORY.</small></span>
     </a>
     <button class="mobile-nav-toggle" type="button" aria-label="باز کردن منو" aria-expanded="false" onclick="document.body.classList.toggle('nav-open');this.setAttribute('aria-expanded',document.body.classList.contains('nav-open'))"><span></span><span></span><span></span></button>
     <nav class="site-nav" aria-label="ناوبری اصلی">
@@ -40,7 +40,7 @@
   <main class="page-shell">{% block content %}{% endblock %}</main>
   <footer class="site-footer">
     <div class="footer-main">
-      <a class="brand brand-footer" href="{{ url_for('index') }}"><span class="brand-mark-wrap"><img src="{{ site_images.get('site_logo') or url_for('static', filename='logo.svg') }}" alt="" class="brand-mark"></span><span class="brand-name">MILAD<span>CRAFT</span><small>YOUR WORLD. YOUR STORY.</small></span></a>
+      <a class="brand brand-footer" href="{{ url_for('index') }}"><span class="brand-mark-wrap"><img src="{{ site_images.get('site_logo') or url_for('static', filename='logo.svg') }}" alt="" class="brand-mark"></span><span class="brand-name">MILAD<span> CRAFT</span><small>YOUR WORLD. YOUR STORY.</small></span></a>
       <p>یک جهان تازه؛ داستانی که با انتخاب تو ساخته می‌شود.</p>
       <a class="footer-server" href="{{ telegram_url }}" target="_blank" rel="noopener noreferrer">به جامعه ما بپیوند <span>↗</span></a>
     </div>
