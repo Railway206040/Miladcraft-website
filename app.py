@@ -815,8 +815,8 @@ def update_site_images():
     upload_dir = Path(__file__).resolve().parent / "static" / "uploads"
     upload_dir.mkdir(parents=True, exist_ok=True)
     allowed = {
-        "image/png": (".png", lambda b: b.startswith(b"\\x89PNG\\r\\n\\x1a\\n")),
-        "image/jpeg": (".jpg", lambda b: b.startswith(b"\\xff\\xd8\\xff")),
+        "image/png": (".png", lambda b: b.startswith(b"\x89PNG\r\n\x1a\n")),
+        "image/jpeg": (".jpg", lambda b: b.startswith(b"\xff\xd8\xff")),
         "image/webp": (".webp", lambda b: len(b) >= 12 and b[:4] == b"RIFF" and b[8:12] == b"WEBP"),
         "image/gif": (".gif", lambda b: b.startswith((b"GIF87a", b"GIF89a"))),
     }
