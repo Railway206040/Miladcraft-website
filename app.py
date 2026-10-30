@@ -93,21 +93,16 @@ def load_upload(key):
     return base64.b64decode(str(encoded))
 
 if IS_CLOUDFLARE:
+    from templates_bundle import TEMPLATES
+
     class CloudflareTemplateLoader(BaseLoader):
         def get_source(self, environment, template):
             if template.startswith("/") or ".." in Path(template).parts:
                 raise TemplateNotFound(template)
-            env = request.environ.get("workers.env")
-            if env is None or not getattr(env, "ASSETS", None):
+            source = TEMPLATES.get(template)
+            if source is None:
                 raise TemplateNotFound(template)
-            url = "https://assets.local/templates/" + template
-            response = run_sync(env.ASSETS.fetch(url))
-            if response.status == 404:
-                raise TemplateNotFound(template)
-            if response.status >= 400:
-                raise RuntimeError("Unable to load template asset: " + template)
-            source = run_sync(response.text())
-            return source, url, lambda: True
+            return source, "bundled://" + template, lambda: True
 
     app.jinja_loader = CloudflareTemplateLoader()
 
@@ -116,7 +111,7 @@ if IS_CLOUDFLARE:
         env = request.environ.get("workers.env")
         if env is None or not getattr(env, "ASSETS", None):
             abort(404)
-        response = run_sync(env.ASSETS.fetch("https://assets.local/static/" + filename))
+        response = run_sync(env.ASSETS.fetch("https://assets.local/" + filename))
         if response.status == 404:
             abort(404)
         body = run_sync(response.bytes())
