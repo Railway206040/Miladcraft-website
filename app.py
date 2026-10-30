@@ -7,7 +7,10 @@ import json
 import os
 import re
 import secrets
-import sqlite3
+try:
+    import sqlite3
+except ImportError:  # Python Workers use D1 instead of the native SQLite extension.
+    sqlite3 = None
 import time
 from datetime import timedelta
 from functools import wraps
@@ -16,11 +19,25 @@ from urllib.error import URLError
 from urllib.request import Request, urlopen
 
 import bleach
-from flask import Flask, abort, flash, g, jsonify, redirect, render_template, request, send_from_directory, session, url_for
+from flask import Flask, Response, abort, flash, g, jsonify, redirect, render_template, request, send_from_directory, session, url_for
+from jinja2 import BaseLoader, TemplateNotFound
 from markupsafe import Markup
 from werkzeug.security import check_password_hash, generate_password_hash
 
-app = Flask(__name__)
+try:
+    from pyodide.ffi import run_sync
+    from workers import wsgi
+    IS_CLOUDFLARE = True
+except ImportError:
+    run_sync = None
+    wsgi = None
+    IS_CLOUDFLARE = False
+
+app = Flask(
+    __name__,
+    static_folder=None if IS_CLOUDFLARE else "static",
+    template_folder=None if IS_CLOUDFLARE else "templates",
+)
 app.secret_key = os.environ.get("SECRET_KEY", "development-only-change-this-before-deploying")
 app.config.update(
     SESSION_COOKIE_HTTPONLY=True,
@@ -34,10 +51,78 @@ SERVER_ADDRESS = "miladcraft.seedloaf.gg"
 SERVER_VERSION = "1.21.11"
 TELEGRAM_URL = os.environ.get("TELEGRAM_URL", "https://t.me/Milad_craft")
 DATA_DIR = Path(os.environ.get("DATA_DIR", "data"))
-DATA_DIR.mkdir(parents=True, exist_ok=True)
 DB_PATH = Path(os.environ.get("DB_PATH", str(DATA_DIR / "miladcraft.db")))
-DB_PATH.parent.mkdir(parents=True, exist_ok=True)
 SITE_UPLOAD_DIR = Path(os.environ.get("UPLOAD_DIR", str(DATA_DIR / "uploads")))
+if not IS_CLOUDFLARE:
+    DATA_DIR.mkdir(parents=True, exist_ok=True)
+    DB_PATH.parent.mkdir(parents=True, exist_ok=True)
+
+def worker_env():
+    if not IS_CLOUDFLARE:
+        return None
+    return request.environ.get("workers.env")
+
+def config_value(name, default=""):
+    env = worker_env()
+    if env is not None:
+        value = getattr(env, name, None)
+        if value is not None:
+            return str(value)
+    return os.environ.get(name, default)
+
+def store_upload(key, raw, mime):
+    if IS_CLOUDFLARE:
+        env = worker_env()
+        if env is None or not getattr(env, "UPLOADS", None):
+            raise RuntimeError("Cloudflare UPLOADS binding is not configured")
+        encoded = base64.b64encode(raw).decode("ascii")
+        run_sync(env.UPLOADS.put(key, encoded, {"metadata": {"contentType": mime}}))
+    else:
+        target = SITE_UPLOAD_DIR / key
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_bytes(raw)
+    return "/site-uploads/" + key
+
+def load_upload(key):
+    env = worker_env()
+    if env is None or not getattr(env, "UPLOADS", None):
+        return None
+    encoded = run_sync(env.UPLOADS.get(key))
+    if encoded is None:
+        return None
+    return base64.b64decode(str(encoded))
+
+if IS_CLOUDFLARE:
+    class CloudflareTemplateLoader(BaseLoader):
+        def get_source(self, environment, template):
+            if template.startswith("/") or ".." in Path(template).parts:
+                raise TemplateNotFound(template)
+            env = request.environ.get("workers.env")
+            if env is None or not getattr(env, "ASSETS", None):
+                raise TemplateNotFound(template)
+            url = "https://assets.local/templates/" + template
+            response = run_sync(env.ASSETS.fetch(url))
+            if response.status == 404:
+                raise TemplateNotFound(template)
+            if response.status >= 400:
+                raise RuntimeError("Unable to load template asset: " + template)
+            source = run_sync(response.text())
+            return source, url, lambda: True
+
+    app.jinja_loader = CloudflareTemplateLoader()
+
+    @app.route("/static/<path:filename>", endpoint="static")
+    def cloudflare_static_asset(filename):
+        env = request.environ.get("workers.env")
+        if env is None or not getattr(env, "ASSETS", None):
+            abort(404)
+        response = run_sync(env.ASSETS.fetch("https://assets.local/static/" + filename))
+        if response.status == 404:
+            abort(404)
+        body = run_sync(response.bytes())
+        content_type = response.headers.get("content-type") or "application/octet-stream"
+        return Response(body, status=response.status, headers={"Content-Type": str(content_type),
+                        "Cache-Control": "public, max-age=3600"})
 
 ROLE_LABELS = {
     "player": "بازیکن",
@@ -81,6 +166,12 @@ IMAGE_DEFAULTS = {
 }
 
 def connect_db():
+    if IS_CLOUDFLARE:
+        from cloudflare_db import D1Connection
+        env = worker_env()
+        if env is None or not getattr(env, "DB", None):
+            raise RuntimeError("Cloudflare DB binding is not configured")
+        return D1Connection(env.DB)
     db = sqlite3.connect(DB_PATH, timeout=15)
     db.row_factory = sqlite3.Row
     db.execute("PRAGMA foreign_keys=ON")
@@ -339,6 +430,26 @@ def log_activity(account, event_type, details=""):
         db.execute("INSERT INTO staff_activity(account_id,username,event_type,details) VALUES(?,?,?,?)",
                    (account["id"], account["username"], event_type, str(details)[:1000]))
 
+def ensure_bootstrap_owner():
+    username = config_value("BOOTSTRAP_OWNER_USERNAME", "").strip()
+    password = config_value("BOOTSTRAP_OWNER_PASSWORD", "")
+    if not username or not password or len(password) < 10:
+        return
+    with connect_db() as db:
+        found = db.execute("SELECT id FROM accounts WHERE username=? COLLATE NOCASE", (username,)).fetchone()
+        if not found:
+            db.execute(
+                "INSERT INTO accounts(username,password_hash,role,display_name) VALUES(?,?,'owner',?)",
+                (username, generate_password_hash(password), username),
+            )
+        else:
+            db.execute("UPDATE accounts SET role='owner' WHERE id=?", (found["id"],))
+        group = db.execute("SELECT id FROM conversations WHERE kind='group' AND title='گروه کارکنان' LIMIT 1").fetchone()
+        account = db.execute("SELECT id FROM accounts WHERE username=? COLLATE NOCASE", (username,)).fetchone()
+        if group and account:
+            db.execute("INSERT OR IGNORE INTO conversation_members(conversation_id,account_id) VALUES(?,?)",
+                       (group["id"], account["id"]))
+
 def safe_next(value, fallback):
     if value and value.startswith("/") and not value.startswith("//") and "\\" not in value:
         return value
@@ -385,6 +496,10 @@ def clean_text(value, limit=3000):
 
 @app.before_request
 def prepare_request():
+    global TELEGRAM_URL
+    if IS_CLOUDFLARE:
+        TELEGRAM_URL = config_value("TELEGRAM_URL", TELEGRAM_URL)
+        ensure_bootstrap_owner()
     g.account = None
     account_id = session.get("account_id")
     if account_id:
@@ -449,9 +564,17 @@ def sitemap_xml():
 @app.route("/api/server-status")
 def server_status():
     try:
-        req = Request("https://api.mcsrvstat.us/3/" + SERVER_ADDRESS, headers={"User-Agent": "MiladCraft-Website/2.0"})
-        with urlopen(req, timeout=3.5) as response:
-            data = json.loads(response.read().decode("utf-8"))
+        if IS_CLOUDFLARE:
+            from js import fetch as js_fetch
+            response = run_sync(js_fetch("https://api.mcsrvstat.us/3/" + SERVER_ADDRESS,
+                                         {"headers": {"User-Agent": "MiladCraft-Website/2.0"}}))
+            if not response.ok:
+                raise RuntimeError("Minecraft status provider returned an error")
+            data = json.loads(run_sync(response.text()))
+        else:
+            req = Request("https://api.mcsrvstat.us/3/" + SERVER_ADDRESS, headers={"User-Agent": "MiladCraft-Website/2.0"})
+            with urlopen(req, timeout=3.5) as response:
+                data = json.loads(response.read().decode("utf-8"))
         online = bool(data.get("online"))
         return jsonify({"online": online, "host": SERVER_ADDRESS,
                         "players_online": data.get("players", {}).get("online", 0) if online else 0,
@@ -531,7 +654,8 @@ def account_profile():
             if mime not in {"image/png", "image/jpeg", "image/webp", "image/gif"} or not raw or len(raw) > 1_500_000:
                 flash("تصویر باید PNG/JPG/WEBP/GIF و حداکثر ۱٫۵ مگابایت باشد.", "error")
                 return redirect(url_for("account_profile"))
-            avatar = "data:" + mime + ";base64," + base64.b64encode(raw).decode("ascii")
+            extension = {"image/png": ".png", "image/jpeg": ".jpg", "image/webp": ".webp", "image/gif": ".gif"}[mime]
+            avatar = store_upload("avatars/" + secrets.token_hex(16) + extension, raw, mime)
         with connect_db() as db:
             db.execute("""UPDATE accounts SET display_name=?,bio=?,minecraft_username=?,telegram=?,discord=?,avatar_url=? WHERE id=?""",
                        (display, bio, minecraft, telegram, discord, avatar, g.account["id"]))
@@ -743,7 +867,9 @@ def create_warning():
         if mime not in {"image/png","image/jpeg","image/webp","image/gif","video/mp4","video/webm"} or not raw or len(raw)>8_000_000:
             flash("مدرک باید تصویر یا ویدئوی MP4/WEBM و حداکثر ۸ مگابایت باشد.", "error")
             return redirect(url_for("staff_dashboard", section="warnings"))
-        evidence_data = "data:"+mime+";base64,"+base64.b64encode(raw).decode("ascii")
+        extension = {"image/png": ".png", "image/jpeg": ".jpg", "image/webp": ".webp", "image/gif": ".gif",
+                     "video/mp4": ".mp4", "video/webm": ".webm"}[mime]
+        evidence_data = store_upload("warnings/" + secrets.token_hex(16) + extension, raw, mime)
     elif evidence_url and (not evidence_url.startswith("https://") or len(evidence_url)>1500):
         flash("لینک مدرک باید با HTTPS شروع شود.", "error")
         return redirect(url_for("staff_dashboard", section="warnings"))
@@ -806,7 +932,13 @@ def change_staff_role(account_id):
 
 @app.route("/site-uploads/<path:filename>")
 def serve_site_upload(filename):
-    # Serve uploaded images from the configured data directory (use a Railway volume for persistence).
+    if IS_CLOUDFLARE:
+        raw = load_upload(filename)
+        if raw is None:
+            abort(404)
+        import mimetypes
+        mime = mimetypes.guess_type(filename)[0] or "application/octet-stream"
+        return Response(raw, mimetype=mime, headers={"Cache-Control": "public, max-age=3600"})
     return send_from_directory(SITE_UPLOAD_DIR, filename)
 
 @app.route("/site-settings/images", methods=["POST"])
@@ -814,7 +946,8 @@ def serve_site_upload(filename):
 def update_site_images():
     # Uploads are stored locally so the homepage does not depend on third-party image hosts.
     upload_dir = SITE_UPLOAD_DIR
-    upload_dir.mkdir(parents=True, exist_ok=True)
+    if not IS_CLOUDFLARE:
+        upload_dir.mkdir(parents=True, exist_ok=True)
     allowed = {
         "image/png": (".png", lambda b: b.startswith(b"\x89PNG\r\n\x1a\n")),
         "image/jpeg": (".jpg", lambda b: b.startswith(b"\xff\xd8\xff")),
@@ -836,9 +969,12 @@ def update_site_images():
             flash("تصویر نامعتبر است یا حجم آن از ۵ مگابایت بیشتر است.", "error")
             return redirect(url_for("staff_dashboard", section="site-settings"))
         filename = key + "-" + secrets.token_hex(12) + allowed[mime][0]
-        target = upload_dir / filename
-        target.write_bytes(raw)
-        updates[key] = "/site-uploads/" + filename
+        if IS_CLOUDFLARE:
+            updates[key] = store_upload(filename, raw, mime)
+        else:
+            target = upload_dir / filename
+            target.write_bytes(raw)
+            updates[key] = "/site-uploads/" + filename
     if not updates:
         flash("حداقل یک تصویر برای بارگذاری انتخاب کن.", "error")
         return redirect(url_for("staff_dashboard", section="site-settings"))
@@ -892,7 +1028,7 @@ def send_message(conversation_id):
 
 @app.route("/api/minecraft-event", methods=["POST"])
 def minecraft_event():
-    expected = os.environ.get("MINECRAFT_WEBHOOK_TOKEN","")
+    expected = config_value("MINECRAFT_WEBHOOK_TOKEN", "")
     supplied = request.headers.get("X-MiladCraft-Token","")
     if not expected:
         return jsonify(error="integration_not_configured"),503
@@ -1105,8 +1241,13 @@ def create_academy_tag():
             with connect_db() as db:
                 db.execute("INSERT INTO academy_tags(name,slug) VALUES(?,?)", (name,slug))
             flash("برچسب ساخته شد.", "success")
-        except sqlite3.IntegrityError:
-            flash("این برچسب از قبل وجود دارد.", "error")
+        except Exception as exc:
+            if sqlite3 is not None and isinstance(exc, sqlite3.IntegrityError):
+                flash("این برچسب از قبل وجود دارد.", "error")
+            elif "UNIQUE constraint" in str(exc):
+                flash("این برچسب از قبل وجود دارد.", "error")
+            else:
+                raise
     return redirect(url_for("staff_dashboard", section="academy-content"))
 
 @app.route("/academy/editor", methods=["GET","POST"])
@@ -1182,7 +1323,8 @@ def bad_request(error):
     message = getattr(error,"description","درخواست نامعتبر است.")
     return render_template("error.html",code=400,message=message),400
 
-init_db()
+if not IS_CLOUDFLARE:
+    init_db()
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0",port=int(os.environ.get("PORT","8080")),debug=False)
