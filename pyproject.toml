@@ -1,3 +1,7 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
 [project]
 name = "miladcraft-website"
 version = "2.0.0"
@@ -7,6 +11,10 @@ dependencies = [
     "Flask>=3.1,<4.0",
     "bleach>=6.2,<7.0",
 ]
+
+[tool.setuptools]
+py-modules = ["app", "cloudflare_db", "worker", "templates_bundle"]
+include-package-data = false
 
 [dependency-groups]
 dev = [
