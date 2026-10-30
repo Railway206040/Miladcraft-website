@@ -19,7 +19,8 @@ from urllib.error import URLError
 from urllib.request import Request, urlopen
 
 import bleach
-from flask import Flask, Response, abort, flash, g, jsonify, redirect, render_template, request, send_from_directory, session, url_for
+from flask import Flask, Response, abort, flash, g, has_request_context, jsonify, redirect, render_template, request, send_from_directory, session, url_for
+from flask.sessions import SecureCookieSessionInterface
 from jinja2 import BaseLoader, TemplateNotFound
 from markupsafe import Markup
 from werkzeug.security import check_password_hash, generate_password_hash
@@ -39,6 +40,25 @@ app = Flask(
     template_folder=None if IS_CLOUDFLARE else "templates",
 )
 app.secret_key = os.environ.get("SECRET_KEY", "development-only-change-this-before-deploying")
+
+class CloudflareSessionInterface(SecureCookieSessionInterface):
+    def get_signing_serializer(self, application):
+        if IS_CLOUDFLARE and has_request_context():
+            env = request.environ.get("workers.env")
+            secret = getattr(env, "SECRET_KEY", None) if env is not None else None
+            if not secret:
+                raise RuntimeError("Cloudflare SECRET_KEY secret is not configured")
+            original = application.secret_key
+            application.secret_key = str(secret)
+            try:
+                return super().get_signing_serializer(application)
+            finally:
+                application.secret_key = original
+        return super().get_signing_serializer(application)
+
+if IS_CLOUDFLARE:
+    app.session_interface = CloudflareSessionInterface()
+
 app.config.update(
     SESSION_COOKIE_HTTPONLY=True,
     SESSION_COOKIE_SAMESITE="Lax",
@@ -490,9 +510,8 @@ def clean_text(value, limit=3000):
 
 @app.before_request
 def prepare_request():
-    global TELEGRAM_URL
     if IS_CLOUDFLARE:
-        TELEGRAM_URL = config_value("TELEGRAM_URL", TELEGRAM_URL)
+        app.config["SESSION_COOKIE_SECURE"] = config_value("COOKIE_SECURE", "true").lower() == "true"
         ensure_bootstrap_owner()
     g.account = None
     account_id = session.get("account_id")
@@ -525,7 +544,8 @@ def common_template_values():
     account = getattr(g, "account", None)
     role = account["role"] if account else "player"
     return {
-        "server_address": SERVER_ADDRESS, "server_version": SERVER_VERSION, "telegram_url": TELEGRAM_URL,
+        "server_address": SERVER_ADDRESS, "server_version": SERVER_VERSION,
+        "telegram_url": config_value("TELEGRAM_URL", TELEGRAM_URL),
         "site_images": site_images, "current_account": account, "role_labels": ROLE_LABELS,
         "role_colors": ROLE_COLORS, "current_role_label": ROLE_LABELS.get(role, role),
         "csrf_token": lambda: session.get("_csrf_token", ""),
