@@ -13,6 +13,7 @@ dependencies = [
 ]
 
 [tool.setuptools]
+packages = []
 py-modules = ["app", "cloudflare_db", "worker", "templates_bundle"]
 include-package-data = false
 
