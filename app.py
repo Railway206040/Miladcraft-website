@@ -437,13 +437,12 @@ def ensure_bootstrap_owner():
         return
     with connect_db() as db:
         found = db.execute("SELECT id FROM accounts WHERE username=? COLLATE NOCASE", (username,)).fetchone()
-        if not found:
-            db.execute(
-                "INSERT INTO accounts(username,password_hash,role,display_name) VALUES(?,?,'owner',?)",
-                (username, generate_password_hash(password), username),
-            )
-        else:
-            db.execute("UPDATE accounts SET role='owner' WHERE id=?", (found["id"],))
+        if found:
+            return
+        db.execute(
+            "INSERT INTO accounts(username,password_hash,role,display_name) VALUES(?,?,'owner',?)",
+            (username, generate_password_hash(password), username),
+        )
         group = db.execute("SELECT id FROM conversations WHERE kind='group' AND title='گروه کارکنان' LIMIT 1").fetchone()
         account = db.execute("SELECT id FROM accounts WHERE username=? COLLATE NOCASE", (username,)).fetchone()
         if group and account:
@@ -609,8 +608,11 @@ def account_register():
                         (username, generate_password_hash(password), display, minecraft))
                 flash("حساب بازیکن ساخته شد؛ حالا وارد شوید.", "success")
                 return redirect(url_for("account_login"))
-            except sqlite3.IntegrityError:
-                flash("این نام کاربری قبلاً ثبت شده است.", "error")
+            except Exception as exc:
+                if "UNIQUE constraint" in str(exc):
+                    flash("این نام کاربری قبلاً ثبت شده است.", "error")
+                else:
+                    raise
     return render_template("account_register.html")
 
 @app.route("/account/login", methods=["GET", "POST"])
