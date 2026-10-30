@@ -604,7 +604,9 @@ def server_status():
                         "players_online": data.get("players", {}).get("online", 0) if online else 0,
                         "players_max": data.get("players", {}).get("max", 0) if online else 0,
                         "version": data.get("version", "") if online else ""})
-    except (URLError, TimeoutError, ValueError, OSError):
+    except Exception:
+        # A status-provider failure must never take down the website on Workers.
+        app.logger.exception("Minecraft status lookup failed")
         return jsonify({"online": None, "host": SERVER_ADDRESS, "players_online": 0, "players_max": 0, "version": "", "error": "status_unavailable"})
 
 @app.route("/account")
