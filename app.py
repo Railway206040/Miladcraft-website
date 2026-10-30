@@ -552,6 +552,16 @@ def common_template_values():
         "csrf_field": lambda: Markup('<input type="hidden" name="_csrf_token" value="%s">' % session.get("_csrf_token", "")),
     }
 
+@app.route("/healthz")
+def health_check():
+    try:
+        with connect_db() as db:
+            db.execute("SELECT COUNT(*) FROM accounts").fetchone()
+        return jsonify(status="ok"), 200
+    except Exception:
+        app.logger.exception("Health check failed")
+        return jsonify(status="unavailable"), 503
+
 @app.route("/")
 def index():
     with connect_db() as db:
