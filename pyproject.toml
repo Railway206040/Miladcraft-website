@@ -1,0 +1,24 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "miladcraft-website"
+version = "2.0.0"
+description = "MILAD CRAFT website on Cloudflare Workers"
+requires-python = ">=3.12"
+dependencies = [
+    "Flask>=3.1,<4.0",
+    "bleach>=6.2,<7.0",
+]
+
+[tool.setuptools]
+packages = []
+py-modules = ["app", "cloudflare_db", "worker", "templates_bundle"]
+include-package-data = false
+
+[dependency-groups]
+dev = [
+    "workers-py",
+    "workers-runtime-sdk",
+]
