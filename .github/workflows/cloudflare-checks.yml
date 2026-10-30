@@ -24,3 +24,15 @@ jobs:
         run: python -m compileall -q app.py cloudflare_db.py worker.py templates_bundle.py tests
       - name: Run application tests
         run: python -m unittest discover -s tests -v
+
+  cloudflare-python-worker:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+        with:
+          enable-cache: true
+      - name: Install Python Worker dependencies
+        run: uv sync --group dev
+      - name: Validate Cloudflare Python Worker bundle
+        run: uv run pywrangler deploy --dry-run
