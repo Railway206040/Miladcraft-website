@@ -13,17 +13,15 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: astral-sh/setup-uv@v6
         with:
-          python-version: "3.12"
+          enable-cache: true
       - name: Install dependencies
-        run: |
-          python -m pip install --upgrade pip
-          pip install -r requirements.txt
+        run: uv sync --group dev
       - name: Compile Python files
-        run: python -m compileall -q app.py cloudflare_db.py worker.py templates_bundle.py tests
+        run: uv run python -m compileall -q app.py cloudflare_db.py worker.py templates_bundle.py tests
       - name: Run application tests
-        run: python -m unittest discover -s tests -v
+        run: uv run python -m unittest discover -s tests -v
 
   cloudflare-python-worker:
     runs-on: ubuntu-latest
