@@ -1146,7 +1146,7 @@ def academy():
 @app.route("/academy/<int:post_id>")
 def blog_post(post_id):
     with connect_db() as db:
-        post = db.execute("SELECT * FROM posts WHERE id=? AND (published=TRUE OR ?)", (post_id, bool(g.account and g.account["role"] in CONTENT_ROLES))).fetchone()
+        post = db.execute("SELECT * FROM posts WHERE id=? AND (published=1 OR ?)", (post_id, int(bool(g.account and g.account["role"] in CONTENT_ROLES)))).fetchone()
         if not post:
             abort(404)
         tags = db.execute("SELECT t.* FROM academy_tags t JOIN post_tags pt ON pt.tag_id=t.id WHERE pt.post_id=? ORDER BY t.name", (post_id,)).fetchall()
