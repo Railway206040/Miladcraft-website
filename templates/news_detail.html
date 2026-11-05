@@ -14,7 +14,7 @@
 {% else %}<p>برای ثبت دیدگاه ابتدا <a href="{{ url_for('account_login',next=request.path) }}">وارد حساب</a> شوید.</p>{% endif %}
 {% macro render_comment(comment, depth=0) %}
 <div class="comment-row news-comment" style="--comment-depth:{{ depth }}">
-<div class="comment-avatar">{{ (comment['display_name'] or comment['username'])[:1]|upper }}</div>
+<div class="comment-avatar">{% if comment['avatar_url'] %}<img src="{{ comment['avatar_url'] }}" alt="{{ comment['display_name'] or comment['username'] }}">{% else %}{{ (comment['display_name'] or comment['username'])[:1]|upper }}{% endif %}</div>
 <div class="comment-body">
 <div class="comment-meta"><b>{{ comment['display_name'] or comment['username'] }}</b>{% if comment['role'] != 'player' %}<span class="staff-badge">کارکنان</span>{% endif %}<small>{{ comment['created_at'] }}</small></div>
 <p>{{ comment['body'] }}</p>
