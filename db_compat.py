@@ -44,14 +44,15 @@ class Connection:
             sql = "SELECT column_name AS name FROM information_schema.columns WHERE table_schema='public' AND table_name=%s"
             params = (table,)
         else:
+            ignore_conflict = bool(re.match(r"INSERT\\s+OR\\s+IGNORE\\s+INTO", sql, re.I))
+            sql = re.sub(r"INSERT\\s+OR\\s+IGNORE\\s+INTO", "INSERT INTO", sql, flags=re.I)
+            sql = re.sub(r"INSERT\\s+OR\\s+REPLACE\\s+INTO", "INSERT INTO", sql, flags=re.I)
             sql = re.sub(r"\\s+COLLATE\\s+NOCASE", "", sql, flags=re.I)
-            sql = sql.replace("INSERT OR IGNORE INTO", "INSERT INTO")
-            sql = sql.replace("INSERT OR REPLACE INTO", "INSERT INTO")
             sql = sql.replace("?", "%s")
+            if ignore_conflict:
+                sql += " ON CONFLICT DO NOTHING"
         cur = self._conn.cursor()
         cur.execute(sql, params)
-        if "INSERT OR IGNORE" in sql.upper() or "INSERT OR REPLACE" in sql.upper():
-            pass
         return Cursor(cur)
 
     def executescript(self, script):
