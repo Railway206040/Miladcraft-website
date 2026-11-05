@@ -61,6 +61,7 @@ class Connection:
             statement = statement.strip()
             if statement:
                 statement = re.sub(r"INTEGER\\s+PRIMARY\\s+KEY\\s+AUTOINCREMENT", "BIGSERIAL PRIMARY KEY", statement, flags=re.I)
+                statement = re.sub(r"\\s+COLLATE\\s+NOCASE", "", statement, flags=re.I)
                 statement = statement.replace("INSERT OR IGNORE INTO", "INSERT INTO")
                 self.execute(statement)
 
