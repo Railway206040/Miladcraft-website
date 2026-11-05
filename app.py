@@ -964,7 +964,7 @@ def news_detail(news_id):
             WHERE c.news_id=? ORDER BY c.id ASC""", (news_id,)).fetchall()
     if not item:
         abort(404)
-    comment_map = {row["id"]: dict(row, replies=[]) for row in comments}
+    comment_map = {row["id"]: {**{key: row[key] for key in row.keys()}, "replies": []} for row in comments}
     roots = []
     for row in comments:
         node = comment_map[row["id"]]
