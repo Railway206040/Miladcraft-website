@@ -19,7 +19,7 @@
 <p>{{ comment['body'] }}</p>
 {% if comment['reply_text'] %}<div class="staff-reply"><b>پاسخ {{ comment['replied_by'] or 'تیم پشتیبانی' }} · تیم MILAD CRAFT</b><p>{{ comment['reply_text'] }}</p>{% if comment['replied_at'] %}<small>{{ comment['replied_at'] }}</small>{% endif %}</div>{% endif %}
 {% if current_account and current_account['role'] in ['owner','developer','manager','admin'] %}
-<details class="comment-reply"><summary>{% if comment['reply_text'] %}ویرایش پاسخ تیم{% else %}پاسخ به دیدگاه{% endif %}</summary><form method="post" action="{{ url_for('reply_to_comment',comment_id=comment['id']) }}" class="form-stack"><input type="hidden" name="csrf_token" value="{{ csrf_token() if csrf_token is defined else '' }}"><textarea name="reply_text" rows="2" maxlength="3000" required placeholder="پاسخ رسمی تیم میلاد کرفت...">{{ comment['reply_text'] or '' }}</textarea><button class="button button-quiet" type="submit">ثبت پاسخ</button></form></details>
+<details class="comment-reply"><summary>{% if comment['reply_text'] %}ویرایش پاسخ تیم{% else %}پاسخ به دیدگاه{% endif %}</summary><form method="post" action="{{ url_for('reply_to_comment',comment_id=comment['id']) }}" class="form-stack">{{ csrf_field() }}<textarea name="reply_text" rows="2" maxlength="3000" required placeholder="پاسخ رسمی تیم میلاد کرفت...">{{ comment['reply_text'] or '' }}</textarea><button class="button button-quiet" type="submit">ثبت پاسخ</button></form></details>
 <form method="post" action="{{ url_for('delete_academy_comment',comment_id=comment['id']) }}" onsubmit="return confirm('این دیدگاه حذف شود؟')">{{ csrf_field() }}<button class="text-link danger-link" type="submit">حذف دیدگاه</button></form>
 {% endif %}
 </div></div>
