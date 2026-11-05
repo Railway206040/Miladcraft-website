@@ -1150,7 +1150,7 @@ def blog_post(post_id):
         if not post:
             abort(404)
         tags = db.execute("SELECT t.* FROM academy_tags t JOIN post_tags pt ON pt.tag_id=t.id WHERE pt.post_id=? ORDER BY t.name", (post_id,)).fetchall()
-        comments = db.execute("SELECT c.*,a.username,a.display_name,a.avatar_url FROM post_comments c JOIN accounts a ON a.id=c.account_id WHERE c.post_id=? ORDER BY c.id DESC", (post_id,)).fetchall()
+        comments = db.execute("SELECT c.*,a.username,a.display_name,a.avatar_url,a.role FROM post_comments c JOIN accounts a ON a.id=c.account_id WHERE c.post_id=? ORDER BY c.id ASC", (post_id,)).fetchall()
         feedback = db.execute("SELECT vote,COUNT(*) AS count FROM post_feedback WHERE post_id=? GROUP BY vote", (post_id,)).fetchall()
         my_vote = db.execute("SELECT vote FROM post_feedback WHERE post_id=? AND account_id=?", (post_id,g.account["id"])).fetchone() if g.account else None
     feedback_counts = {row["vote"]: row["count"] for row in feedback}
@@ -1211,7 +1211,22 @@ def reply_to_comment(comment_id):
             db.execute("INSERT INTO notifications(recipient_type,recipient_id,title,body,target_url) VALUES('account',?,?,?,?)",
                        (comment["account_id"],"پاسخ جدید به دیدگاه",reply[:500],url_for("blog_post",post_id=comment["post_id"])+"#questions"))
         flash("پاسخ ثبت شد.", "success")
-    return redirect(url_for("staff_dashboard", section="academy-content"))
+    return redirect(url_for("blog_post",post_id=comment["post_id"])+"#questions")
+
+@app.route("/academy/comments/<int:comment_id>/delete", methods=["POST"])
+@staff_required
+def delete_academy_comment(comment_id):
+    if g.account["role"] not in CONTENT_ROLES:
+        abort(403)
+    with connect_db() as db:
+        comment = db.execute("SELECT post_id FROM post_comments WHERE id=?", (comment_id,)).fetchone()
+        if not comment:
+            abort(404)
+        post_id = comment["post_id"]
+        db.execute("DELETE FROM post_comments WHERE id=?", (comment_id,))
+    flash("دیدگاه حذف شد.", "success")
+    return redirect(url_for("blog_post",post_id=post_id)+"#questions")
+
 
 @app.route("/academy/tags/create", methods=["POST"])
 @staff_required
