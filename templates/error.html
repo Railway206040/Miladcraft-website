@@ -1,3 +1,14 @@
 {% extends "base.html" %}
-{% block title %}خطای {{ code }} | MILAD CRAFT{% endblock %}
-{% block content %}<section class="error-page"><span class="eyebrow">MILAD CRAFT / SYSTEM MESSAGE</span><span class="error-code">{{ code }}</span><h1>این مسیر در دسترس نیست.</h1><p>{{ message }}</p><a class="button button-primary" href="{{ url_for('index') }}">بازگشت به خانه <span>←</span></a></section>{% endblock %}
+{% block title %}{% if code == 404 %}صفحه پیدا نشد{% else %}خطای {{ code }}{% endif %} | MILAD CRAFT{% endblock %}
+{% block description %}صفحه موردنظر در وب‌سایت میلاد کرفت در دسترس نیست.{% endblock %}
+{% block content %}
+<section class="error-page mc-error-page">
+  <div class="error-orbit error-orbit-one"></div><div class="error-orbit error-orbit-two"></div>
+  <span class="eyebrow">MILAD CRAFT <span class="eyebrow-divider">/</span> SYSTEM MESSAGE</span>
+  <span class="error-code">{{ code }}</span>
+  <h1>{% if code == 404 %}این صفحه در دنیای میلاد کرفت پیدا نشد!{% elif code == 403 %}دسترسی به این بخش امکان‌پذیر نیست{% else %}درخواست قابل انجام نیست{% endif %}</h1>
+  <p>{{ message }}</p>
+  <div class="error-actions"><a class="button button-primary" href="{{ url_for('index') }}">بازگشت به خانه <span>←</span></a><a class="button button-outline" href="{{ url_for('academy') }}">رفتن به آکادمی</a></div>
+  <span class="error-footnote">شاید آدرس اشتباه باشد یا این صفحه دیگر وجود نداشته باشد.</span>
+</section>
+{% endblock %}
