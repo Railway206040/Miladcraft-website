@@ -1,4 +1,29 @@
 {% extends "base.html" %}
 {% block title %}{{ item['title'] }} | MILAD CRAFT{% endblock %}
 {% block description %}{{ item['summary'] or item['title'] }}{% endblock %}
-{% block content %}<article class="article-detail"><a class="back-link" href="{{ url_for('news_page') }}">← بازگشت به اخبار</a><div class="article-detail-cover-wrap {% if not item['cover_url'] %}category-cover-news{% endif %}">{% if item['cover_url'] %}<img class="article-detail-cover" src="{{ item['cover_url'] }}" alt="">{% else %}<span>اخبار سرور</span>{% endif %}<b>اخبار</b></div><div class="article-detail-head"><span class="eyebrow">OFFICIAL NEWS / MILAD CRAFT</span><h1>{{ item['title'] }}</h1><p>{{ item['summary'] }}</p><small>نویسنده: {{ item['author'] }} · {{ item['created_at'][:10] }}</small></div><div class="article-rich-content">{{ item['content']|safe }}</div></article>{% endblock %}
+{% block content %}
+<article class="article-detail">
+<a class="back-link" href="{{ url_for('news_page') }}">← بازگشت به اخبار</a>
+<div class="article-detail-cover-wrap {% if not item['cover_url'] %}category-cover-news{% endif %}">{% if item['cover_url'] %}<img class="article-detail-cover" src="{{ item['cover_url'] }}" alt="">{% else %}<span>اخبار سرور</span>{% endif %}<b>اخبار</b></div>
+<div class="article-detail-head"><span class="eyebrow">OFFICIAL NEWS / MILAD CRAFT</span><h1>{{ item['title'] }}</h1><p>{{ item['summary'] }}</p><small>نویسنده: {{ item['author'] }} · {{ item['created_at'][:10] }}</small></div>
+<div class="article-rich-content">{{ item['content']|safe }}</div>
+<section class="panel comments-panel" id="news-comments">
+<h2>دیدگاه‌ها</h2>
+{% if current_account %}
+<form method="post" action="{{ url_for('news_comment',news_id=item['id']) }}" class="form-stack comment-form">{{ csrf_field() }}<label>دیدگاه شما<textarea name="body" rows="3" maxlength="3000" required placeholder="نظر خود را دربارهٔ این خبر بنویسید..."></textarea></label><button class="button button-primary" type="submit">ثبت دیدگاه</button></form>
+{% else %}<p>برای ثبت دیدگاه ابتدا <a href="{{ url_for('account_login',next=request.path) }}">وارد حساب</a> شوید.</p>{% endif %}
+{% macro render_comment(comment, depth=0) %}
+<div class="comment-row news-comment" style="--comment-depth:{{ depth }}">
+<div class="comment-avatar">{{ (comment['display_name'] or comment['username'])[:1]|upper }}</div>
+<div class="comment-body">
+<div class="comment-meta"><b>{{ comment['display_name'] or comment['username'] }}</b>{% if comment['role'] != 'player' %}<span class="staff-badge">کارکنان</span>{% endif %}<small>{{ comment['created_at'] }}</small></div>
+<p>{{ comment['body'] }}</p>
+{% if current_account %}<details class="comment-reply"><summary>پاسخ به این دیدگاه</summary><form method="post" action="{{ url_for('news_comment',news_id=item['id']) }}" class="form-stack">{{ csrf_field() }}<input type="hidden" name="parent_id" value="{{ comment['id'] }}"><textarea name="body" rows="2" maxlength="3000" required placeholder="پاسخ خود را بنویسید..."></textarea><button class="button button-quiet" type="submit">ارسال پاسخ</button></form></details>{% endif %}
+{% if current_account and current_account['role'] in ['owner','developer','admin','manager'] %}<form method="post" action="{{ url_for('delete_news_comment',comment_id=comment['id']) }}" onsubmit="return confirm('این دیدگاه و پاسخ‌هایش حذف شوند؟')">{{ csrf_field() }}<button class="text-link danger-link" type="submit">حذف دیدگاه</button></form>{% endif %}
+{% for reply in comment['replies'] %}{{ render_comment(reply, depth+1) }}{% endfor %}
+</div></div>
+{% endmacro %}
+{% for comment in comments %}{{ render_comment(comment) }}{% else %}<div class="empty-state">هنوز دیدگاهی ثبت نشده است.</div>{% endfor %}
+</section>
+</article>
+{% endblock %}
