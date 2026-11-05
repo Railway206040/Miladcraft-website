@@ -17,7 +17,7 @@ from urllib.error import URLError
 from urllib.request import Request, urlopen
 
 import bleach
-from flask import Flask, abort, flash, g, jsonify, redirect, render_template, request, send_from_directory, session, url_for
+from flask import Flask, Response, abort, flash, g, jsonify, redirect, render_template, request, send_from_directory, session, url_for
 from markupsafe import Markup
 from werkzeug.security import check_password_hash, generate_password_hash
 
@@ -210,6 +210,10 @@ def init_db():
           account_id INTEGER NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,
           vote INTEGER NOT NULL CHECK(vote IN (-1,1)), created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
           PRIMARY KEY(post_id, account_id)
+        );
+        CREATE TABLE IF NOT EXISTS site_uploads (
+          filename TEXT PRIMARY KEY, content_type TEXT NOT NULL, data TEXT NOT NULL,
+          created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
         );
         CREATE TABLE IF NOT EXISTS news_comments (
           id INTEGER PRIMARY KEY AUTOINCREMENT, news_id INTEGER NOT NULL REFERENCES news(id) ON DELETE CASCADE,
@@ -821,8 +825,11 @@ def change_staff_role(account_id):
 
 @app.route("/site-uploads/<path:filename>")
 def serve_site_upload(filename):
-    # Serve uploaded images from the configured data directory (use a Railway volume for persistence).
-    return send_from_directory(SITE_UPLOAD_DIR, filename)
+    with connect_db() as db:
+        upload = db.execute("SELECT content_type,data FROM site_uploads WHERE filename=?", (filename,)).fetchone()
+    if not upload:
+        abort(404)
+    return Response(base64.b64decode(upload["data"]), mimetype=upload["content_type"], headers={"Cache-Control":"public, max-age=31536000, immutable"})
 
 @app.route("/site-settings/images", methods=["POST"])
 @roles_required("developer","owner")
@@ -851,8 +858,9 @@ def update_site_images():
             flash("تصویر نامعتبر است یا حجم آن از ۵ مگابایت بیشتر است.", "error")
             return redirect(url_for("staff_dashboard", section="site-settings"))
         filename = key + "-" + secrets.token_hex(12) + allowed[mime][0]
-        target = upload_dir / filename
-        target.write_bytes(raw)
+        with connect_db() as db:
+            db.execute("INSERT INTO site_uploads(filename,content_type,data) VALUES(?,?,?)",
+                       (filename,mime,base64.b64encode(raw).decode("ascii")))
         updates[key] = "/site-uploads/" + filename
     if not updates:
         flash("حداقل یک تصویر برای بارگذاری انتخاب کن.", "error")
