@@ -584,3 +584,16 @@ h1,h2,h3,h4,p,a,small,b,strong,span,code{overflow-wrap:anywhere}
  .site-header .brand-name,.site-footer .brand-footer .brand-name{font-size:13px!important}
  .site-footer .brand-footer{gap:8px!important}
 }
+
+/* Academy feedback: visible selected states and clear vote totals. */
+.feedback-buttons button.is-positive{background:rgba(34,197,94,.18)!important;border-color:#22c55e!important;color:#86efac!important}
+.feedback-buttons button.is-negative{background:rgba(239,68,68,.16)!important;border-color:#ef4444!important;color:#fca5a5!important}
+.feedback-total{width:100%;margin:10px 0 0;color:#9aaabd;font-size:13px}
+.news-comment{margin-top:18px;padding-top:14px;border-top:1px solid rgba(148,163,184,.14)}
+.news-comment[style*="--comment-depth:"]{margin-right:calc(var(--comment-depth,0)*18px)}
+.comment-meta{display:flex;align-items:center;gap:9px;flex-wrap:wrap}
+.staff-badge{display:inline-flex;padding:2px 8px;border-radius:999px;background:rgba(59,130,246,.16);border:1px solid rgba(96,165,250,.4);color:#93c5fd;font-size:11px}
+.comment-reply{margin:10px 0;color:#80d9f4}
+.comment-reply summary{cursor:pointer;font-size:13px}
+.comment-reply form{margin-top:10px}
+.danger-link{color:#f87171!important}
