@@ -8,6 +8,7 @@ import os
 import re
 import secrets
 import sqlite3
+import db_compat
 import time
 from datetime import timedelta
 from functools import wraps
@@ -21,7 +22,7 @@ from markupsafe import Markup
 from werkzeug.security import check_password_hash, generate_password_hash
 
 app = Flask(__name__)
-app.secret_key = os.environ.get("SECRET_KEY", "development-only-change-this-before-deploying")
+app.secret_key = os.environ.get("SECRET_KEY") or secrets.token_urlsafe(48)
 app.config.update(
     SESSION_COOKIE_HTTPONLY=True,
     SESSION_COOKIE_SAMESITE="Lax",
@@ -81,6 +82,9 @@ IMAGE_DEFAULTS = {
 }
 
 def connect_db():
+    database_url = os.environ.get("DATABASE_URL", "").strip()
+    if database_url:
+        return db_compat.connect(database_url)
     db = sqlite3.connect(DB_PATH, timeout=15)
     db.row_factory = sqlite3.Row
     db.execute("PRAGMA foreign_keys=ON")
@@ -206,6 +210,12 @@ def init_db():
           account_id INTEGER NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,
           vote INTEGER NOT NULL CHECK(vote IN (-1,1)), created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
           PRIMARY KEY(post_id, account_id)
+        );
+        CREATE TABLE IF NOT EXISTS news_comments (
+          id INTEGER PRIMARY KEY AUTOINCREMENT, news_id INTEGER NOT NULL REFERENCES news(id) ON DELETE CASCADE,
+          account_id INTEGER NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,
+          parent_id INTEGER REFERENCES news_comments(id) ON DELETE CASCADE,
+          body TEXT NOT NULL, created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
         );
         CREATE TABLE IF NOT EXISTS app_meta (meta_key TEXT PRIMARY KEY, meta_value TEXT NOT NULL);
         CREATE INDEX IF NOT EXISTS idx_projects_status ON projects(status, id DESC);
@@ -484,9 +494,14 @@ def account_register():
                     db.execute("""INSERT INTO accounts(username,password_hash,role,display_name,minecraft_username)
                         VALUES(?,?,'player',?,?)""",
                         (username, generate_password_hash(password), display, minecraft))
-                flash("حساب بازیکن ساخته شد؛ حالا وارد شوید.", "success")
-                return redirect(url_for("account_login"))
-            except sqlite3.IntegrityError:
+                with connect_db() as db:
+                    account = db.execute("SELECT id FROM accounts WHERE username=? COLLATE NOCASE", (username,)).fetchone()
+                    session.clear()
+                    session.permanent = True
+                    session["account_id"] = account["id"]
+                flash("حساب شما ساخته شد و وارد پنل شدید.", "success")
+                return redirect(url_for("account_profile"))
+            except (sqlite3.IntegrityError, db_compat.IntegrityError):
                 flash("این نام کاربری قبلاً ثبت شده است.", "error")
     return render_template("account_register.html")
 
@@ -936,9 +951,52 @@ def news_page():
 def news_detail(news_id):
     with connect_db() as db:
         item = db.execute("SELECT * FROM news WHERE id=? AND published=1", (news_id,)).fetchone()
+        comments = db.execute("""SELECT c.*,a.username,a.display_name,a.role
+            FROM news_comments c JOIN accounts a ON a.id=c.account_id
+            WHERE c.news_id=? ORDER BY c.id ASC""", (news_id,)).fetchall()
     if not item:
         abort(404)
-    return render_template("news_detail.html",item=item)
+    comment_map = {row["id"]: dict(row, replies=[]) for row in comments}
+    roots = []
+    for row in comments:
+        node = comment_map[row["id"]]
+        if row["parent_id"] and row["parent_id"] in comment_map:
+            comment_map[row["parent_id"]]["replies"].append(node)
+        else:
+            roots.append(node)
+    return render_template("news_detail.html",item=item,comments=roots)
+
+@app.route("/news/<int:news_id>/comment", methods=["POST"])
+@account_required
+def news_comment(news_id):
+    body = clean_text(request.form.get("body", ""), 3000)
+    parent_id = request.form.get("parent_id", type=int)
+    if not body:
+        flash("متن دیدگاه الزامی است.", "error")
+    else:
+        with connect_db() as db:
+            if not db.execute("SELECT id FROM news WHERE id=? AND published=1", (news_id,)).fetchone():
+                abort(404)
+            if parent_id and not db.execute("SELECT id FROM news_comments WHERE id=? AND news_id=?", (parent_id, news_id)).fetchone():
+                abort(404)
+            db.execute("INSERT INTO news_comments(news_id,account_id,parent_id,body) VALUES(?,?,?,?)",
+                       (news_id,g.account["id"],parent_id,body))
+        flash("دیدگاه ثبت شد.", "success")
+    return redirect(url_for("news_detail",news_id=news_id)+"#news-comments")
+
+@app.route("/news/comments/<int:comment_id>/delete", methods=["POST"])
+@staff_required
+def delete_news_comment(comment_id):
+    if g.account["role"] not in CONTENT_ROLES:
+        abort(403)
+    with connect_db() as db:
+        comment = db.execute("SELECT news_id FROM news_comments WHERE id=?", (comment_id,)).fetchone()
+        if not comment:
+            abort(404)
+        news_id = comment["news_id"]
+        db.execute("DELETE FROM news_comments WHERE id=?", (comment_id,))
+    flash("دیدگاه و پاسخ‌های وابسته حذف شدند.", "success")
+    return redirect(url_for("news_detail",news_id=news_id)+"#news-comments")
 
 @app.route("/news/editor", methods=["GET", "POST"])
 @staff_required
@@ -1032,7 +1090,8 @@ def blog_post(post_id):
         comments = db.execute("SELECT c.*,a.username,a.display_name,a.avatar_url FROM post_comments c JOIN accounts a ON a.id=c.account_id WHERE c.post_id=? ORDER BY c.id DESC", (post_id,)).fetchall()
         feedback = db.execute("SELECT vote,COUNT(*) AS count FROM post_feedback WHERE post_id=? GROUP BY vote", (post_id,)).fetchall()
         my_vote = db.execute("SELECT vote FROM post_feedback WHERE post_id=? AND account_id=?", (post_id,g.account["id"])).fetchone() if g.account else None
-    return render_template("post.html",post=post,tags=tags,comments=comments,feedback=feedback,my_vote=my_vote)
+    feedback_counts = {row["vote"]: row["count"] for row in feedback}
+    return render_template("post.html",post=post,tags=tags,comments=comments,feedback=feedback,my_vote=my_vote,feedback_counts=feedback_counts)
 
 @app.route("/academy/<int:post_id>/feedback", methods=["POST"])
 @account_required
