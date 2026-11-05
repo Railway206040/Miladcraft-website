@@ -35,7 +35,7 @@ class Connection:
         sql = sql.strip()
         # SQLite schema inspection -> PostgreSQL information_schema.
         if "sqlite_master" in sql:
-            literal_name = re.search(r"name\\s*=\\s*'([^']+)'", sql, re.I)
+            literal_name = re.search(r"name\s*=\s*'([^']+)'", sql, re.I)
             if literal_name:
                 params = (literal_name.group(1),)
             if "SELECT sql FROM sqlite_master" in sql:
