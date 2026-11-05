@@ -1,10 +1,40 @@
 {% extends "base.html" %}
-{% block title %}پروفایل من | MILAD CRAFT{% endblock %}
+{% block title %}پروفایل من | MILAD CRAFT<script>
+document.addEventListener('DOMContentLoaded',function(){
+ const input=document.getElementById('avatar-file-input');
+ const preview=document.getElementById('avatar-preview');
+ const fileName=document.getElementById('avatar-file-name');
+ if(!input||!preview)return;
+ input.addEventListener('change',function(){
+  const file=input.files&&input.files[0];
+  if(!file)return;
+  if(!['image/png','image/jpeg','image/webp','image/gif'].includes(file.type)||file.size>1500000){
+   input.value='';
+   fileName.textContent='فرمت نامعتبر یا حجم بیشتر از ۱٫۵ مگابایت است.';
+   fileName.classList.add('avatar-file-error');
+   return;
+  }
+  fileName.classList.remove('avatar-file-error');
+  fileName.textContent=file.name;
+  const reader=new FileReader();
+  reader.onload=function(){preview.innerHTML='';const img=document.createElement('img');img.src=reader.result;img.alt='پیش‌نمایش تصویر پروفایل';preview.appendChild(img);};
+  reader.readAsDataURL(file);
+ });
+});
+</script>
+{% endblock %}
 {% block content %}
 <section class="dashboard-page">
   <div class="dashboard-welcome"><div><span class="eyebrow">ACCOUNT CENTER</span><h1>پروفایل <span>من</span></h1><p>اطلاعات و فعالیت‌های حساب خود را از اینجا مدیریت کن.</p></div><div class="welcome-actions"><form method="post" action="{{ url_for('account_logout') }}">{{ csrf_field() }}<button class="button button-quiet" type="submit">خروج</button></form></div></div>
   <div class="profile-layout"><aside class="profile-summary panel"><div class="profile-avatar">{% if current_account['avatar_url'] %}<img src="{{ current_account['avatar_url'] }}" alt="تصویر پروفایل">{% else %}<span>{{ current_account['username'][:1]|upper }}</span>{% endif %}</div><h2>{{ current_account['display_name'] or current_account['username'] }}</h2><p>@{{ current_account['username'] }}</p><span class="role-pill" style="--role-color:{{ role_colors[current_account['role']] }}">{{ current_role_label }}</span><div class="profile-meta"><div><small>عضویت از</small><b>{{ current_account['created_at'][:10] }}</b></div><div><small>نام Minecraft</small><b>{{ current_account['minecraft_username'] or 'ثبت نشده' }}</b></div>{% if presence %}<div><small>وضعیت سرور</small><b>{{ 'آنلاین' if presence['is_online'] else 'آفلاین / نامشخص' }}</b></div>{% endif %}</div></aside>
-  <div class="profile-main"><section class="panel"><div class="panel-heading"><div><span class="eyebrow">PERSONAL DETAILS</span><h2>ویرایش پروفایل</h2></div></div><form method="post" enctype="multipart/form-data" class="form-stack">{{ csrf_field() }}<div class="form-grid"><label>نام نمایشی<input name="display_name" maxlength="80" required value="{{ current_account['display_name'] }}"></label><label>نام کاربری Minecraft<input name="minecraft_username" maxlength="32" value="{{ current_account['minecraft_username'] }}"></label><label>تلگرام<input name="telegram" maxlength="50" value="{{ current_account['telegram'] }}" placeholder="@username"></label><label>Discord<input name="discord" maxlength="80" value="{{ current_account['discord'] }}"></label><label class="field-full">درباره من<textarea name="bio" maxlength="500" rows="3">{{ current_account['bio'] }}</textarea></label><label class="field-full">تصویر پروفایل<input type="file" name="avatar_file" accept="image/png,image/jpeg,image/webp,image/gif"><small>PNG، JPG، WEBP یا GIF تا ۱٫۵ مگابایت.</small></label></div><button class="button button-primary" type="submit">ذخیره تغییرات</button></form></section>
+  <div class="profile-main"><section class="panel"><div class="panel-heading"><div><span class="eyebrow">PERSONAL DETAILS</span><h2>ویرایش پروفایل</h2></div></div><form method="post" enctype="multipart/form-data" class="form-stack">{{ csrf_field() }}<div class="form-grid"><label>نام نمایشی<input name="display_name" maxlength="80" required value="{{ current_account['display_name'] }}"></label><label>نام کاربری Minecraft<input name="minecraft_username" maxlength="32" value="{{ current_account['minecraft_username'] }}"></label><label>تلگرام<input name="telegram" maxlength="50" value="{{ current_account['telegram'] }}" placeholder="@username"></label><label>Discord<input name="discord" maxlength="80" value="{{ current_account['discord'] }}"></label><label class="field-full">درباره من<textarea name="bio" maxlength="500" rows="3">{{ current_account['bio'] }}</textarea></label><div class="field-full avatar-upload-card">
+  <div class="avatar-upload-preview" id="avatar-preview">{% if current_account['avatar_url'] %}<img src="{{ current_account['avatar_url'] }}" alt="پیش‌نمایش تصویر پروفایل">{% else %}<span>{{ current_account['username'][:1]|upper }}</span>{% endif %}</div>
+  <div class="avatar-upload-copy"><b>تصویر پروفایل</b><small>یک تصویر واضح برای نمایش کنار دیدگاه‌ها و در پروفایلت انتخاب کن.</small>
+    <label class="avatar-picker-button" for="avatar-file-input"><span class="avatar-picker-icon">↑</span><span>انتخاب تصویر</span></label>
+    <input class="avatar-file-input" id="avatar-file-input" type="file" name="avatar_file" accept="image/png,image/jpeg,image/webp,image/gif">
+    <small id="avatar-file-name">PNG، JPG، WEBP یا GIF · حداکثر ۱٫۵ مگابایت</small>
+  </div>
+</div></div><button class="button button-primary" type="submit">ذخیره تغییرات</button></form></section>
   <section class="panel"><div class="panel-heading"><div><span class="eyebrow">SECURITY</span><h2>تغییر رمز عبور</h2></div></div><form method="post" action="{{ url_for('change_password') }}" class="form-stack">{{ csrf_field() }}<div class="form-grid"><label>رمز فعلی<input type="password" name="current_password" required autocomplete="current-password"></label><label>رمز جدید<input type="password" name="new_password" required minlength="10" autocomplete="new-password"></label><label>تکرار رمز جدید<input type="password" name="confirm_password" required minlength="10" autocomplete="new-password"></label></div><button class="button button-quiet" type="submit">تغییر رمز</button></form></section>
   {% if current_account['role'] != 'player' %}<section class="panel" id="warnings"><div class="panel-heading"><div><span class="eyebrow">STAFF ACTIVITY</span><h2>فعالیت‌های من</h2></div></div>{% for item in activity %}<div class="activity-row"><span class="activity-marker"></span><div><b>{{ item['event_type'] }}</b><p>{{ item['details'] }}</p><small>{{ item['created_at'] }}</small></div></div>{% else %}<div class="empty-state">هنوز فعالیتی ثبت نشده است.</div>{% endfor %}</section><section class="panel"><div class="panel-heading"><div><span class="eyebrow">WARNINGS</span><h2>اخطارهای من</h2></div></div>{% for item in warnings %}<div class="list-row"><div><b>{{ item['reason'] }}</b><small>صادرکننده: {{ item['issued_by'] }} · {{ item['created_at'] }}</small>{% if item['evidence_data'] %}<a href="{{ item['evidence_data'] }}" target="_blank" rel="noopener">مشاهده مدرک</a>{% elif item['evidence_url'] %}<a href="{{ item['evidence_url'] }}" target="_blank" rel="noopener">مشاهده مدرک</a>{% endif %}</div></div>{% else %}<div class="empty-state">اخطاری برای نمایش وجود ندارد.</div>{% endfor %}</section>{% endif %}
   <section class="panel"><div class="panel-heading"><div><span class="eyebrow">NOTIFICATIONS</span><h2>اعلان‌ها {% if unread_count %}<span class="count-badge">{{ unread_count }}</span>{% endif %}</h2></div></div>{% for item in notifications %}<div class="notification-row {% if not item['is_read'] %}notification-unread{% endif %}"><div><b>{{ item['title'] }}</b><p>{{ item['body'] }}</p><small>{{ item['created_at'] }}</small></div><form method="post" action="{{ url_for('notification_read',notification_id=item['id']) }}">{{ csrf_field() }}<button class="button button-quiet button-small" type="submit">{{ 'خوانده شد' if item['is_read'] else 'مشاهده' }}</button></form></div>{% else %}<div class="empty-state">اعلانی وجود ندارد.</div>{% endfor %}</section>
