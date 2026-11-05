@@ -32,10 +32,10 @@
       </div>
       <div class="messenger-new-chat">
         <div><b>گفت‌وگوی خصوصی</b><small>برای همکار خود پیام بفرست.</small></div>
-        <form method="post" action="{{ url_for('start_private_message') }}" class="new-chat-form">{{ csrf_field() }}
+        <form method="post" action="{{ url_for('start_private_message') }}" class="new-chat-form" enctype="multipart/form-data">{{ csrf_field() }}
           <label class="sr-only" for="private-recipient">انتخاب همکار</label><select name="recipient" id="private-recipient" required><option value="">انتخاب همکار...</option>{% for person in staff %}{% if person['id'] != current_account['id'] %}<option value="{{ person['username'] }}">{{ person['display_name'] or person['username'] }} · {{ role_labels[person['role']] }}</option>{% endif %}{% endfor %}</select>
           <label class="sr-only" for="private-first-message">متن پیام</label><textarea name="body" id="private-first-message" maxlength="4000" required rows="2" placeholder="پیام اولت را بنویس..."></textarea>
-          <button class="button button-primary button-full" type="submit">شروع گفت‌وگو <span>←</span></button>
+          <label class="message-file-pick">افزودن فایل <input type="file" name="attachment" accept="image/*,.pdf,.txt,.zip,.docx"></label><button class="button button-primary button-full" type="submit">شروع گفت‌وگو <span>←</span></button>
         </form>
       </div>
     </aside>
@@ -47,14 +47,14 @@
           <div class="messages-day-divider"><span>پیام‌ها</span></div>
           {% for message in convo['messages'] %}
           <div class="message-line {% if message['sender_id']==current_account['id'] %}message-line-mine{% endif %}">
-            <div class="message-avatar">{% if message['sender_id']==current_account['id'] %}{{ current_account['username'][:1]|upper }}{% else %}{{ (message['sender_name'] or message['sender_username'] or 'ک')[:1]|upper }}{% endif %}</div>
-            <div class="message-content"><div class="message-meta"><b>{{ message['sender_name'] or message['sender_username'] or 'کاربر' }}</b><time>{{ message['created_at'] }}</time></div><div class="message-bubble {% if message['sender_id']==current_account['id'] %}message-mine{% endif %}">{{ message['body'] }}</div></div>
+            <div class="message-content"><div class="message-meta"><b>{{ message['sender_name'] or message['sender_username'] or 'کاربر' }}</b><time>{{ message['created_at'] }}</time></div><div class="message-bubble {% if message['sender_id']==current_account['id'] %}message-mine{% endif %}">{% if message['body'] %}{{ message['body'] }}{% endif %}{% if message['attachment_data'] %}<div class="message-attachment">{% if message['attachment_mime'].startswith('image/') %}<a href="data:{{ message['attachment_mime'] }};base64,{{ message['attachment_data'] }}" target="_blank" rel="noopener"><img src="data:{{ message['attachment_mime'] }};base64,{{ message['attachment_data'] }}" alt="{{ message['attachment_name'] }}"></a>{% endif %}<a download="{{ message['attachment_name'] }}" href="data:{{ message['attachment_mime'] }};base64,{{ message['attachment_data'] }}">دریافت فایل: {{ message['attachment_name'] }}</a></div>{% endif %}</div>{% if message['sender_id']==current_account['id'] %}<div class="message-actions"><form method="post" action="{{ url_for('edit_message',message_id=message['id']) }}" class="message-edit-form">{{ csrf_field() }}<input name="body" value="{{ message['body'] }}" maxlength="4000" aria-label="ویرایش پیام"><button type="submit">ویرایش</button></form><form method="post" action="{{ url_for('delete_message',message_id=message['id']) }}" onsubmit="return confirm('این پیام حذف شود؟')">{{ csrf_field() }}<button type="submit" class="danger-link">حذف</button></form></div>{% endif %}</div>
+            <div class="message-avatar">{% if message['sender_avatar'] %}<img src="{{ message['sender_avatar'] }}" alt="">{% elif message['sender_id']==current_account['id'] and current_account['avatar_url'] %}<img src="{{ current_account['avatar_url'] }}" alt="">{% else %}{{ (message['sender_name'] or message['sender_username'] or 'ک')[:1]|upper }}{% endif %}</div>
           </div>
           {% else %}<div class="conversation-empty"><span class="conversation-empty-mark">MC</span><b>اولین پیام را بفرست</b><p>این گفت‌وگو هنوز شروع نشده است.</p></div>{% endfor %}
         </div>
-        <form method="post" action="{{ url_for('send_message',conversation_id=convo['id']) }}" class="message-composer">{{ csrf_field() }}
-          <label class="sr-only" for="message-{{ convo['id'] }}">متن پیام</label><textarea id="message-{{ convo['id'] }}" name="body" maxlength="4000" required rows="1" placeholder="پیامت را اینجا بنویس... (Enter برای خط جدید)"></textarea>
-          <div class="composer-bottom"><small>لطفاً اطلاعات ورود یا رمز عبور را در پیام‌ها نفرست.</small><button class="button button-primary" type="submit">ارسال پیام <span>↗</span></button></div>
+        <form method="post" action="{{ url_for('send_message',conversation_id=convo['id']) }}" class="message-composer" enctype="multipart/form-data">{{ csrf_field() }}
+          <label class="sr-only" for="message-{{ convo['id'] }}">متن پیام</label><textarea id="message-{{ convo['id'] }}" name="body" maxlength="4000" rows="1" placeholder="پیامت را اینجا بنویس... (Enter برای خط جدید)"></textarea>
+          <div class="composer-bottom"><label class="message-file-pick">افزودن فایل <input type="file" name="attachment" accept="image/*,.pdf,.txt,.zip,.docx"></label><small>فایل تا ۵ مگابایت · اطلاعات ورود را ارسال نکن.</small><button class="button button-primary" type="submit">ارسال پیام <span>↗</span></button></div>
         </form>
       </article>
       {% else %}
