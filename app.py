@@ -959,7 +959,7 @@ def news_page():
 def news_detail(news_id):
     with connect_db() as db:
         item = db.execute("SELECT * FROM news WHERE id=? AND published=1", (news_id,)).fetchone()
-        comments = db.execute("""SELECT c.*,a.username,a.display_name,a.role
+        comments = db.execute("""SELECT c.*,a.username,a.display_name,a.role,a.avatar_url
             FROM news_comments c JOIN accounts a ON a.id=c.account_id
             WHERE c.news_id=? ORDER BY c.id ASC""", (news_id,)).fetchall()
     if not item:
