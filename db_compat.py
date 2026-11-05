@@ -40,14 +40,14 @@ class Connection:
             else:
                 sql = "SELECT 1 FROM information_schema.tables WHERE table_schema='public' AND table_name=%s"
         elif sql.upper().startswith("PRAGMA TABLE_INFO"):
-            table = re.search(r"PRAGMA\\s+table_info\\(([^)]+)\\)", sql, re.I).group(1).strip("'\\\"")
+            table = re.search(r"PRAGMA\s+table_info\(([^)]+)\)", sql, re.I).group(1).strip("'\\"")
             sql = "SELECT column_name AS name FROM information_schema.columns WHERE table_schema='public' AND table_name=%s"
             params = (table,)
         else:
-            ignore_conflict = bool(re.match(r"INSERT\\s+OR\\s+IGNORE\\s+INTO", sql, re.I))
-            sql = re.sub(r"INSERT\\s+OR\\s+IGNORE\\s+INTO", "INSERT INTO", sql, flags=re.I)
-            sql = re.sub(r"INSERT\\s+OR\\s+REPLACE\\s+INTO", "INSERT INTO", sql, flags=re.I)
-            sql = re.sub(r"\\s+COLLATE\\s+NOCASE", "", sql, flags=re.I)
+            ignore_conflict = bool(re.match(r"INSERT\s+OR\s+IGNORE\s+INTO", sql, re.I))
+            sql = re.sub(r"INSERT\s+OR\s+IGNORE\s+INTO", "INSERT INTO", sql, flags=re.I)
+            sql = re.sub(r"INSERT\s+OR\s+REPLACE\s+INTO", "INSERT INTO", sql, flags=re.I)
+            sql = re.sub(r"\s+COLLATE\s+NOCASE", "", sql, flags=re.I)
             sql = sql.replace("?", "%s")
             if ignore_conflict:
                 sql += " ON CONFLICT DO NOTHING"
@@ -60,8 +60,8 @@ class Connection:
         for statement in script.split(";"):
             statement = statement.strip()
             if statement:
-                statement = re.sub(r"INTEGER\\s+PRIMARY\\s+KEY\\s+AUTOINCREMENT", "BIGSERIAL PRIMARY KEY", statement, flags=re.I)
-                statement = re.sub(r"\\s+COLLATE\\s+NOCASE", "", statement, flags=re.I)
+                statement = re.sub(r"INTEGER\s+PRIMARY\s+KEY\s+AUTOINCREMENT", "BIGSERIAL PRIMARY KEY", statement, flags=re.I)
+                statement = re.sub(r"\s+COLLATE\s+NOCASE", "", statement, flags=re.I)
                 statement = statement.replace("INSERT OR IGNORE INTO", "INSERT INTO")
                 self.execute(statement)
 
