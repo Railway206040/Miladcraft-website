@@ -20,6 +20,7 @@ import bleach
 from flask import Flask, Response, abort, flash, g, jsonify, redirect, render_template, request, send_from_directory, session, url_for
 from markupsafe import Markup
 from werkzeug.security import check_password_hash, generate_password_hash
+from werkzeug.utils import secure_filename
 
 app = Flask(__name__)
 app.secret_key = os.environ.get("SECRET_KEY") or secrets.token_urlsafe(48)
@@ -229,6 +230,9 @@ def init_db():
         CREATE INDEX IF NOT EXISTS idx_notifications_account ON notifications(recipient_id, is_read, id DESC);
         """)
         _add_column(db, "warnings", "evidence_data", "TEXT NOT NULL DEFAULT ''")
+        _add_column(db, "messages", "attachment_name", "TEXT NOT NULL DEFAULT ''")
+        _add_column(db, "messages", "attachment_mime", "TEXT NOT NULL DEFAULT ''")
+        _add_column(db, "messages", "attachment_data", "TEXT NOT NULL DEFAULT ''")
         _add_column(db, "notifications", "recipient_type", "TEXT NOT NULL DEFAULT 'account'")
         _add_column(db, "accounts", "bio", "TEXT NOT NULL DEFAULT ''")
         # Import the old split account tables only once; later deployments must preserve role changes.
@@ -614,7 +618,7 @@ def staff_dashboard():
             WHERE cm.account_id=? ORDER BY CASE c.kind WHEN 'group' THEN 0 ELSE 1 END,c.id""", (g.account["id"],)).fetchall()
         conversation_data = []
         for convo in conversations:
-            messages = db.execute("""SELECT m.*,a.username AS sender_username,a.display_name AS sender_name FROM messages m
+            messages = db.execute("""SELECT m.*,a.username AS sender_username,a.display_name AS sender_name,a.avatar_url AS sender_avatar FROM messages m
                 LEFT JOIN accounts a ON a.id=m.sender_id WHERE m.conversation_id=? ORDER BY m.id DESC LIMIT 30""", (convo["id"],)).fetchall()
             title = convo["title"]
             if convo["kind"] == "private":
@@ -870,13 +874,33 @@ def update_site_images():
             db.execute("UPDATE site_settings SET setting_value=? WHERE setting_key=?", (value, key))
     flash("تصاویر جدید بارگذاری و ذخیره شدند.", "success")
     return redirect(url_for("staff_dashboard", section="site-settings"))
+def _message_attachment():
+    upload = request.files.get("attachment")
+    if not upload or not upload.filename:
+        return "", "", ""
+    allowed = {"image/png","image/jpeg","image/webp","image/gif","application/pdf","text/plain","application/zip","application/vnd.openxmlformats-officedocument.wordprocessingml.document"}
+    mime = (upload.mimetype or "").lower()
+    if mime not in allowed:
+        flash("نوع فایل مجاز نیست. تصویر، PDF، TXT، ZIP یا DOCX ارسال کن.", "error")
+        return None
+    raw = upload.read(5 * 1024 * 1024 + 1)
+    if not raw or len(raw) > 5 * 1024 * 1024:
+        flash("حجم فایل باید حداکثر ۵ مگابایت باشد.", "error")
+        return None
+    filename = secure_filename(upload.filename)[:120] or "attachment"
+    return filename, mime, base64.b64encode(raw).decode("ascii")
+
 @app.route("/messages/private", methods=["POST"])
 @staff_required
 def start_private_message():
     recipient = request.form.get("recipient","").strip()
     body = clean_text(request.form.get("body",""),4000)
-    if not recipient or not body:
-        flash("گیرنده و متن پیام الزامی است.", "error")
+    attachment = _message_attachment()
+    if attachment is None:
+        return redirect(url_for("staff_dashboard", section="messenger"))
+    filename, mime, data = attachment
+    if not recipient or (not body and not data):
+        flash("گیرنده و متن یا فایل پیام الزامی است.", "error")
         return redirect(url_for("staff_dashboard", section="messenger"))
     with connect_db() as db:
         target = db.execute("SELECT id,username FROM accounts WHERE username=? COLLATE NOCASE AND role<>'player'", (recipient,)).fetchone()
@@ -887,14 +911,12 @@ def start_private_message():
             JOIN conversation_members a ON a.conversation_id=c.id AND a.account_id=?
             JOIN conversation_members b ON b.conversation_id=c.id AND b.account_id=?
             WHERE c.kind='private' LIMIT 1""", (g.account["id"],target["id"])).fetchone()
-        if convo:
-            convo_id = convo["id"]
+        if convo: convo_id = convo["id"]
         else:
-            convo_id = db.execute("INSERT INTO conversations(kind,title,created_by) VALUES('private',?,?)",
-                ("پیام خصوصی",g.account["id"])).lastrowid
-            db.execute("INSERT INTO conversation_members(conversation_id,account_id) VALUES(?,?)", (convo_id,g.account["id"]))
-            db.execute("INSERT INTO conversation_members(conversation_id,account_id) VALUES(?,?)", (convo_id,target["id"]))
-        db.execute("INSERT INTO messages(conversation_id,sender_id,body) VALUES(?,?,?)", (convo_id,g.account["id"],body))
+            convo_id = db.execute("INSERT INTO conversations(kind,title,created_by) VALUES('private',?,?)",("پیام خصوصی",g.account["id"])).lastrowid
+            db.execute("INSERT INTO conversation_members(conversation_id,account_id) VALUES(?,?)",(convo_id,g.account["id"]))
+            db.execute("INSERT INTO conversation_members(conversation_id,account_id) VALUES(?,?)",(convo_id,target["id"]))
+        db.execute("INSERT INTO messages(conversation_id,sender_id,body,attachment_name,attachment_mime,attachment_data) VALUES(?,?,?,?,?,?)",(convo_id,g.account["id"],body,filename,mime,data))
     flash("پیام ارسال شد.", "success")
     return redirect(url_for("staff_dashboard", section="messenger"))
 
@@ -902,16 +924,42 @@ def start_private_message():
 @staff_required
 def send_message(conversation_id):
     body = clean_text(request.form.get("body",""),4000)
+    attachment = _message_attachment()
+    if attachment is None: return redirect(url_for("staff_dashboard", section="messenger"))
+    filename, mime, data = attachment
     with connect_db() as db:
-        member = db.execute("SELECT 1 FROM conversation_members WHERE conversation_id=? AND account_id=?", (conversation_id,g.account["id"])).fetchone()
-        if not member:
-            abort(403)
-        if not body:
-            flash("متن پیام خالی است.", "error")
+        member = db.execute("SELECT 1 FROM conversation_members WHERE conversation_id=? AND account_id=?",(conversation_id,g.account["id"])).fetchone()
+        if not member: abort(403)
+        if not body and not data: flash("متن یا فایل پیام را وارد کن.","error")
         else:
-            db.execute("INSERT INTO messages(conversation_id,sender_id,body) VALUES(?,?,?)", (conversation_id,g.account["id"],body))
-            flash("پیام ارسال شد.", "success")
-    return redirect(url_for("staff_dashboard", section="messenger"))
+            db.execute("INSERT INTO messages(conversation_id,sender_id,body,attachment_name,attachment_mime,attachment_data) VALUES(?,?,?,?,?,?)",(conversation_id,g.account["id"],body,filename,mime,data))
+            flash("پیام ارسال شد.","success")
+    return redirect(url_for("staff_dashboard",section="messenger"))
+
+@app.route("/messages/<int:message_id>/edit", methods=["POST"])
+@staff_required
+def edit_message(message_id):
+    body = clean_text(request.form.get("body",""),4000)
+    with connect_db() as db:
+        message = db.execute("""SELECT m.* FROM messages m JOIN conversation_members cm ON cm.conversation_id=m.conversation_id AND cm.account_id=? WHERE m.id=?""",(g.account["id"],message_id)).fetchone()
+        if not message: abort(404)
+        if message["sender_id"] != g.account["id"]: abort(403)
+        if not body and not message["attachment_data"]: flash("پیام نمی‌تواند خالی باشد.","error")
+        else:
+            db.execute("UPDATE messages SET body=? WHERE id=?",(body,message_id))
+            flash("پیام ویرایش شد.","success")
+    return redirect(url_for("staff_dashboard",section="messenger"))
+
+@app.route("/messages/<int:message_id>/delete", methods=["POST"])
+@staff_required
+def delete_message(message_id):
+    with connect_db() as db:
+        message = db.execute("""SELECT m.* FROM messages m JOIN conversation_members cm ON cm.conversation_id=m.conversation_id AND cm.account_id=? WHERE m.id=?""",(g.account["id"],message_id)).fetchone()
+        if not message: abort(404)
+        if message["sender_id"] != g.account["id"] and g.account["role"] not in MASTER_ROLES: abort(403)
+        db.execute("DELETE FROM messages WHERE id=?",(message_id,))
+        flash("پیام حذف شد.","success")
+    return redirect(url_for("staff_dashboard",section="messenger"))
 
 @app.route("/api/minecraft-event", methods=["POST"])
 def minecraft_event():
