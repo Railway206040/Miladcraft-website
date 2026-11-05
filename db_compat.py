@@ -40,7 +40,7 @@ class Connection:
             else:
                 sql = "SELECT 1 FROM information_schema.tables WHERE table_schema='public' AND table_name=%s"
         elif sql.upper().startswith("PRAGMA TABLE_INFO"):
-            table = re.search(r"PRAGMA\s+table_info\(([^)]+)\)", sql, re.I).group(1).strip("'\\"")
+            table = re.search(r"PRAGMA\s+table_info\(([^)]+)\)", sql, re.I).group(1).strip("'")
             sql = "SELECT column_name AS name FROM information_schema.columns WHERE table_schema='public' AND table_name=%s"
             params = (table,)
         else:
