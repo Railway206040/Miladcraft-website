@@ -1134,12 +1134,19 @@ def academy():
             args.append(tag_slug)
         sql += " ORDER BY p.id DESC"
         posts = db.execute(sql,args).fetchall()
-    return render_template("academy.html",posts=posts,tags=tags,query=query,tag_slug=tag_slug)
+        post_tags = {}
+        if posts:
+            post_ids = [row["id"] for row in posts]
+            placeholders = ",".join(["?"] * len(post_ids))
+            tag_rows = db.execute(f"SELECT pt.post_id,t.name,t.slug FROM post_tags pt JOIN academy_tags t ON t.id=pt.tag_id WHERE pt.post_id IN ({placeholders}) ORDER BY t.name", post_ids).fetchall()
+            for tag_row in tag_rows:
+                post_tags.setdefault(tag_row["post_id"], []).append(tag_row)
+    return render_template("academy.html",posts=posts,tags=tags,post_tags=post_tags,query=query,tag_slug=tag_slug)
 
 @app.route("/academy/<int:post_id>")
 def blog_post(post_id):
     with connect_db() as db:
-        post = db.execute("SELECT * FROM posts WHERE id=? AND (published=1 OR ?)", (post_id, int(bool(g.account and g.account["role"] in CONTENT_ROLES)))).fetchone()
+        post = db.execute("SELECT * FROM posts WHERE id=? AND (published=TRUE OR ?)", (post_id, bool(g.account and g.account["role"] in CONTENT_ROLES))).fetchone()
         if not post:
             abort(404)
         tags = db.execute("SELECT t.* FROM academy_tags t JOIN post_tags pt ON pt.tag_id=t.id WHERE pt.post_id=? ORDER BY t.name", (post_id,)).fetchall()
